@@ -1,0 +1,50 @@
+# Build artifacts
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Android
+android/app/build/
+android/.gradle/
+android/build/
+android/.idea/
+android/local.properties
+*.apk
+!mobile/app-debug.apk
+
+# Logs
+*.log
+logs/
+api_*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Backups
+backups/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Trae spec workspace
+.trae/
+
+# Environment
+.env
+.env.local
+.env.*.local
