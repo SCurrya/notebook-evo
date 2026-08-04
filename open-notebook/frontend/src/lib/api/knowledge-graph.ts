@@ -48,6 +48,17 @@ export interface ExtractGraphRequest {
   notebook_id: string
 }
 
+// GraphRAG 问答结果
+export interface GraphAskResult {
+  question: string
+  answer: string
+  entities: Array<{ id: string; name: string; type: string }>
+  graph_paths: Array<{ source: string; target: string; type: string }>
+  retrieved: Array<{ id: string; title: string; content: string; score: number }>
+  context: string
+  model_source: string
+}
+
 export const knowledgeGraphApi = {
   // 从笔记本内容提取实体和关系（调用 LLM）
   extract: async (data: ExtractGraphRequest) => {
@@ -97,6 +108,12 @@ export const knowledgeGraphApi = {
     const response = await apiClient.delete(
       `/knowledge-graph/relation/${relationId}`
     )
+    return response.data
+  },
+
+  // GraphRAG 问答
+  ask: async (data: { question: string; notebook_id: string; top_k?: number }) => {
+    const response = await apiClient.post<GraphAskResult>('/knowledge-graph/ask', data)
     return response.data
   },
 }
