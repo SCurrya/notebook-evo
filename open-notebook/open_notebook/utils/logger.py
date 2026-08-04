@@ -46,6 +46,7 @@ class Operation:
     SEARCH = "SEARCH"
     TRANSFORM = "TRANSFORM"
     CHAT = "CHAT"
+    EVAL = "EVAL"
 
 
 class Result:

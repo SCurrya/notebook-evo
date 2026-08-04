@@ -107,7 +107,6 @@ def _load_optional_routers() -> None:
         "transformations",
         "video",
         "logs",
-        "agents",
         "ppt",
         "blog",
         "pdf",
@@ -416,6 +415,9 @@ for _required_mod in [
     "source_chat",
     "share",
     "api_keys",
+    "eval",
+    "agents",
+    "knowledge_graph",
 ]:
     _include_router_module(_required_mod, required=True)
 

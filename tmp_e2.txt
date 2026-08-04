@@ -1,0 +1,22 @@
+.F....                                                                   [100%]
+================================== FAILURES ===================================
+______________ TestMetricsFallback.test_ragas_fallback_on_error _______________
+tests\test_eval_service.py:47: in test_ragas_fallback_on_error
+    assert captured.get("called") is True
+E   AssertionError: assert None is True
+E    +  where None = <built-in method get of dict object at 0x00000206193F7700>('called')
+E    +    where <built-in method get of dict object at 0x00000206193F7700> = {}.get
+---------------------------- Captured stderr call -----------------------------
+2026-08-04 18:23:33.514 | WARNING  | - | - | - | - | RAGAS scoring failed, using heuristic fallback: ragas unavailable
+============================== warnings summary ===============================
+tests/test_eval_service.py::TestMetricsFallback::test_heuristic_scoring
+  E:\notebook\open-notebook\.venv\Lib\site-packages\surreal_commands\core\retry.py:41: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class RetryConfig(BaseModel):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_eval_service.py::TestMetricsFallback::test_ragas_fallback_on_error
+1 failed, 5 passed, 1 warning in 2.71s
+E:\notebook\open-notebook\.venv\Lib\site-packages\_pytest\unraisableexception.py:33: RuntimeWarning: coroutine 'TestMetricsFallback.test_ragas_fallback_on_error.<locals>.fake_fallback' was never awaited
+  gc.collect()
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback

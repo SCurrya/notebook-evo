@@ -248,7 +248,7 @@ class AgentManager:
 
     _instance: Optional["AgentManager"] = None
 
-    def __init__(self) -> None:
+    def __init__(self, state_file: Optional[str] = None) -> None:
         self._agents: Dict[str, Agent] = {}
         self._tasks: Dict[str, Task] = {}
         self._messages: List[AgentMessage] = []
@@ -257,12 +257,70 @@ class AgentManager:
         self._lock = asyncio.Lock()
         self._running = False
         self._scheduler_task: Optional[asyncio.Task] = None
+        # --- Persistence (survives API restarts) ---
+        from api.agent_persistence import AgentStateStore
+
+        self._store = AgentStateStore(state_file)
+        self._restore_state()
 
     @classmethod
     def get_instance(cls) -> "AgentManager":
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
+
+    # --- Persistence helpers ---
+
+    def _restore_state(self) -> None:
+        """Load agents/tasks/messages from disk into memory."""
+        try:
+            state = self._store.load()
+            restored_agents = 0
+            restored_tasks = 0
+            for a in state.get("agents", []):
+                try:
+                    agent = Agent(**a)
+                    # Keep RUNNING tasks from blocking restore: reset BUSY -> IDLE
+                    if agent.status == AgentStatus.BUSY:
+                        agent.status = AgentStatus.IDLE
+                        agent.current_task_id = None
+                    self._agents[agent.id] = agent
+                    restored_agents += 1
+                except Exception as e:
+                    logger.warning(f"Skipping corrupt agent record: {e}")
+            for t in state.get("tasks", []):
+                try:
+                    task = Task(**t)
+                    # Tasks that were running/pending at shutdown stay pending
+                    if task.status in (TaskStatus.RUNNING, TaskStatus.ASSIGNED):
+                        task.status = TaskStatus.PENDING
+                        task.assigned_agent_id = None
+                    self._tasks[task.id] = task
+                    restored_tasks += 1
+                except Exception as e:
+                    logger.warning(f"Skipping corrupt task record: {e}")
+            for m in state.get("messages", []):
+                try:
+                    self._messages.append(AgentMessage(**m))
+                except Exception:
+                    continue
+            logger.info(
+                f"Agent state restored: agents={restored_agents} "
+                f"tasks={restored_tasks} messages={len(self._messages)}"
+            )
+        except Exception as e:
+            logger.error(f"Agent state restore failed: {e}")
+
+    def _persist(self) -> None:
+        """Persist the current in-memory state to disk."""
+        try:
+            self._store.save(
+                [a.model_dump() for a in self._agents.values()],
+                [t.model_dump() for t in self._tasks.values()],
+                [m.model_dump() for m in self._messages],
+            )
+        except Exception as e:
+            logger.error(f"Agent state persist failed: {e}")
 
     # --- Agent management ---
 
@@ -278,6 +336,7 @@ class AgentManager:
         logger.info(
             f"Agent created: id={agent.id} name={agent.name} type={agent.type}"
         )
+        self._persist()
         return agent
 
     def list_agents(self) -> List[Agent]:
@@ -316,6 +375,7 @@ class AgentManager:
         )
         self._tasks[task.id] = task
         logger.info(f"Task created: id={task.id} title={task.title}")
+        self._persist()
         return task
 
     def list_tasks(
@@ -343,6 +403,7 @@ class AgentManager:
         if task.assigned_agent_id:
             self.set_agent_status(task.assigned_agent_id, AgentStatus.IDLE)
         logger.info(f"Task cancelled: {task_id}")
+        self._persist()
         return task
 
     # --- Scheduling ---
@@ -494,6 +555,7 @@ class AgentManager:
             agent.status = AgentStatus.IDLE
             agent.current_task_id = None
             agent.last_active = datetime.now(timezone.utc).isoformat()
+            self._persist()
 
     # --- Messaging ---
 
@@ -507,6 +569,7 @@ class AgentManager:
             content=content,
         )
         self._messages.append(msg)
+        self._persist()
         return msg
 
     def get_messages(

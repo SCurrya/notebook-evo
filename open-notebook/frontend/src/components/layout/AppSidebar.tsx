@@ -54,6 +54,7 @@ import {
   PenTool,
   FileDown,
   ImageIcon,
+  Activity,
 } from 'lucide-react'
 
 const getNavigation = (t: TFunction) => [
@@ -67,6 +68,7 @@ const getNavigation = (t: TFunction) => [
       { name: t('navigation.notebooks'), href: '/notebooks', icon: Book },
       { name: t('navigation.askAndSearch'), href: '/search', icon: Search },
       { name: '知识图谱', href: '/knowledge-graph', icon: Network },
+      { name: 'RAG 评估', href: '/eval', icon: Activity },
     ],
   },
   {

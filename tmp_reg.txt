@@ -1,0 +1,128 @@
+........................................................................ [ 24%]
+.........................FF.FFFFFF..............................FFFFFFFF [ 48%]
+FF...................................................................... [ 72%]
+.............................FFF.FFFF.FFFF.............................. [ 96%]
+..........                                                               [100%]
+================================== FAILURES ===================================
+E   ConnectionRefusedError: [WinError 1225] 远程计算机拒绝网络连接。
+C:\Users\ZS\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\asyncio\windows_events.py:599: ConnectionRefusedError: [WinError 1225] 远程计算机拒绝网络连接。
+E   ConnectionRefusedError: [WinError 1225] 远程计算机拒绝网络连接。
+C:\Users\ZS\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\asyncio\windows_events.py:599: ConnectionRefusedError: [WinError 1225] 远程计算机拒绝网络连接。
+E   ConnectionRefusedError: [WinError 1225] 远程计算机拒绝网络连接。
+C:\Users\ZS\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\asyncio\windows_events.py:599: ConnectionRefusedError: [WinError 1225] 远程计算机拒绝网络连接。
+E   ConnectionRefusedError: [WinError 1225] 远程计算机拒绝网络连接。
+C:\Users\ZS\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\asyncio\windows_events.py:599: ConnectionRefusedError: [WinError 1225] 远程计算机拒绝网络连接。
+E   ConnectionRefusedError: [WinError 1225] 远程计算机拒绝网络连接。
+C:\Users\ZS\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\asyncio\windows_events.py:599: ConnectionRefusedError: [WinError 1225] 远程计算机拒绝网络连接。
+E   ConnectionRefusedError: [WinError 1225] 远程计算机拒绝网络连接。
+C:\Users\ZS\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\asyncio\windows_events.py:599: ConnectionRefusedError: [WinError 1225] 远程计算机拒绝网络连接。
+E   ConnectionRefusedError: [WinError 1225] 远程计算机拒绝网络连接。
+C:\Users\ZS\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\asyncio\windows_events.py:599: ConnectionRefusedError: [WinError 1225] 远程计算机拒绝网络连接。
+E   ConnectionRefusedError: [WinError 1225] 远程计算机拒绝网络连接。
+C:\Users\ZS\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\asyncio\windows_events.py:599: ConnectionRefusedError: [WinError 1225] 远程计算机拒绝网络连接。
+E   assert 404 == 200
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_knowledge_graph_api.py:131: assert 404 == 200
+E   AssertionError: assert '不存在' in 'Not found'
+E:\notebook\open-notebook\tests\test_knowledge_graph_api.py:149: AssertionError: assert '不存在' in 'Not found'
+E   assert 404 == 400
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_knowledge_graph_api.py:162: assert 404 == 400
+E   assert 404 == 200
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_knowledge_graph_api.py:180: assert 404 == 200
+E   assert 404 == 200
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_knowledge_graph_api.py:196: assert 404 == 200
+E   assert 404 == 200
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_knowledge_graph_api.py:220: assert 404 == 200
+E   assert 404 == 200
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_knowledge_graph_api.py:238: assert 404 == 200
+E   assert 404 == 200
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_knowledge_graph_api.py:267: assert 404 == 200
+E   AssertionError: assert '不存在' in 'Not found'
+E:\notebook\open-notebook\tests\test_knowledge_graph_api.py:290: AssertionError: assert '不存在' in 'Not found'
+E   assert 404 == 200
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_knowledge_graph_api.py:301: assert 404 == 200
+E   assert 404 == 200
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_studio_api.py:55: assert 404 == 200
+E   assert 404 == 200
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_studio_api.py:79: assert 404 == 200
+E   assert 404 == 200
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_studio_api.py:95: assert 404 == 200
+E   assert 404 == 200
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_studio_api.py:120: assert 404 == 200
+E   assert 404 == 200
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_studio_api.py:134: assert 404 == 200
+E   assert 404 == 200
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_studio_api.py:170: assert 404 == 200
+E   assert 404 == 200
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_studio_api.py:201: assert 404 == 200
+E   assert 404 == 200
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_studio_api.py:245: assert 404 == 200
+E   assert 404 == 200
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_studio_api.py:274: assert 404 == 200
+E   assert 404 == 200
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_studio_api.py:306: assert 404 == 200
+E   assert 404 == 400
+     +  where 404 = <Response [404 Not Found]>.status_code
+E:\notebook\open-notebook\tests\test_studio_api.py:324: assert 404 == 400
+============================== warnings summary ===============================
+.venv\Lib\site-packages\fastapi\testclient.py:1
+  E:\notebook\open-notebook\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+.venv\Lib\site-packages\surreal_commands\core\retry.py:41
+  E:\notebook\open-notebook\.venv\Lib\site-packages\surreal_commands\core\retry.py:41: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class RetryConfig(BaseModel):
+
+.venv\Lib\site-packages\langgraph\cache\base\__init__.py:8
+  E:\notebook\open-notebook\.venv\Lib\site-packages\langgraph\cache\base\__init__.py:8: LangChainPendingDeprecationWarning: The default value of `allowed_objects` will change in a future version. Pass an explicit value (e.g., allowed_objects='messages' or allowed_objects='core') to suppress this warning.
+    from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_embedding.py::TestGenerateEmbeddings::test_no_model_raises
+FAILED tests/test_embedding.py::TestGenerateEmbeddings::test_successful_embedding
+FAILED tests/test_embedding.py::TestGenerateEmbedding::test_short_text_direct_embedding
+FAILED tests/test_embedding.py::TestGenerateEmbedding::test_long_text_chunked_and_pooled
+FAILED tests/test_embedding.py::TestGenerateEmbedding::test_content_type_parameter
+FAILED tests/test_embedding.py::TestGenerateEmbedding::test_batching - Connec...
+FAILED tests/test_embedding.py::TestGenerateEmbedding::test_batch_retry_on_transient_failure
+FAILED tests/test_embedding.py::TestGenerateEmbedding::test_batch_retry_exhaustion
+FAILED tests/test_knowledge_graph_api.py::TestGraphExtraction::test_extract_graph_success
+FAILED tests/test_knowledge_graph_api.py::TestGraphExtraction::test_extract_graph_notebook_not_found
+FAILED tests/test_knowledge_graph_api.py::TestGraphExtraction::test_extract_graph_empty_content
+FAILED tests/test_knowledge_graph_api.py::TestGraphRetrieval::test_get_graph_success
+FAILED tests/test_knowledge_graph_api.py::TestGraphRetrieval::test_get_graph_empty
+FAILED tests/test_knowledge_graph_api.py::TestEntityManagement::test_create_entity_success
+FAILED tests/test_knowledge_graph_api.py::TestEntityManagement::test_delete_entity_success
+FAILED tests/test_knowledge_graph_api.py::TestRelationManagement::test_create_relation_success
+FAILED tests/test_knowledge_graph_api.py::TestRelationManagement::test_create_relation_entity_not_found
+FAILED tests/test_knowledge_graph_api.py::TestRelationManagement::test_delete_relation_success
+FAILED tests/test_studio_api.py::TestTemplateCRUD::test_list_templates - asse...
+FAILED tests/test_studio_api.py::TestTemplateCRUD::test_create_template - ass...
+FAILED tests/test_studio_api.py::TestTemplateCRUD::test_get_template - assert...
+FAILED tests/test_studio_api.py::TestTemplateCRUD::test_update_template - ass...
+FAILED tests/test_studio_api.py::TestTemplateCRUD::test_delete_template - ass...
+FAILED tests/test_studio_api.py::TestReportGeneration::test_generate_report_academic
+FAILED tests/test_studio_api.py::TestReportGeneration::test_generate_report_business
+FAILED tests/test_studio_api.py::TestFAQGeneration::test_generate_faq - asser...
+FAILED tests/test_studio_api.py::TestFAQGeneration::test_generate_faq_with_markdown_code_block
+FAILED tests/test_studio_api.py::TestTimelineGeneration::test_generate_timeline
+FAILED tests/test_studio_api.py::TestTimelineGeneration::test_generate_timeline_empty_notebook
+29 failed, 269 passed, 3 warnings in 65.54s (0:01:05)
