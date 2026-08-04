@@ -100,6 +100,39 @@ class AskResponse(BaseModel):
     question: str = Field(..., description="Original question")
 
 
+# Hybrid search models
+class HybridSearchRequest(BaseModel):
+    query: str = Field(..., description="Search query", min_length=1)
+    limit: int = Field(10, description="Maximum number of fused results", ge=1, le=100)
+    search_sources: bool = Field(True, description="Include sources in search")
+    search_notes: bool = Field(True, description="Include notes in search")
+    minimum_score: float = Field(0.2, description="Minimum vector similarity score", ge=0, le=1)
+    rerank: bool = Field(True, description="Apply reranker (falls back to RRF-only if unavailable)")
+    include_details: bool = Field(False, description="Include per-path diagnostic details")
+
+
+class HybridSearchResultItem(BaseModel):
+    id: str
+    title: str = ""
+    content_preview: str = ""
+    parent_id: str = ""
+    result_type: str = ""
+    rrf_score: float = 0.0
+    vector_score: Optional[float] = None
+    text_score: Optional[float] = None
+    rerank_score: Optional[float] = None
+    sources: List[str] = []
+
+
+class HybridSearchResponse(BaseModel):
+    query: str
+    results: List[HybridSearchResultItem]
+    total_count: int
+    vector_hits: int = 0
+    text_hits: int = 0
+    rerank_used: bool = False
+
+
 # Models API models
 class ModelCreate(BaseModel):
     name: str = Field(..., description="Model name (e.g., gpt-5-mini, claude, gemini)")

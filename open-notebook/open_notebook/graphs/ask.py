@@ -11,6 +11,7 @@ from typing_extensions import TypedDict
 
 from open_notebook.ai.provision import provision_langchain_model
 from open_notebook.domain.notebook import vector_search
+from open_notebook.search.hybrid import hybrid_search
 from open_notebook.exceptions import OpenNotebookError
 from open_notebook.utils import clean_thinking_content
 from open_notebook.utils.error_classifier import classify_error
@@ -98,13 +99,25 @@ async def trigger_queries(state: ThreadState, config: RunnableConfig):
 async def provide_answer(state: SubGraphState, config: RunnableConfig) -> dict:
     try:
         payload = state
-        # if state["type"] == "text":
-        #     results = text_search(state["term"], 10, True, True)
-        # else:
-        results = await vector_search(state["term"], 10, True, True)
-        if len(results) == 0:
+        # Hybrid retrieval: vector + BM25 fused by RRF (rerank optional)
+        hybrid = await hybrid_search(
+            state["term"],
+            limit=10,
+            search_sources=True,
+            search_notes=True,
+            rerank=False,
+        )
+        if not hybrid:
             return {"answers": []}
-        payload["results"] = results
+        payload["results"] = [
+            {
+                "id": r.id,
+                "title": r.title,
+                "content": r.content,
+                "parent_id": r.parent_id,
+            }
+            for r in hybrid
+        ]
         ids = [r["id"] for r in results]
         payload["ids"] = ids
         system_prompt = Prompter(prompt_template="ask/query_process").render(data=payload)  # type: ignore[arg-type]
