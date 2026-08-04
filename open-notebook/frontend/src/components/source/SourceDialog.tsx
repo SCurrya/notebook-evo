@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { SourceDetailContent } from './SourceDetailContent'
 import { useTranslation } from '@/lib/hooks/use-translation'
+import { navigateToStaticHref, sourceDetailHref } from '@/lib/routes'
 
 interface SourceDialogProps {
   open: boolean
@@ -28,7 +29,7 @@ export function SourceDialog({ open, onOpenChange, sourceId }: SourceDialogProps
   const handleChatClick = () => {
     if (sourceIdWithPrefix) {
       onOpenChange(false)
-      router.push(`/sources/${sourceIdWithPrefix}`)
+      navigateToStaticHref(sourceDetailHref(sourceIdWithPrefix), router)
     }
   }
 

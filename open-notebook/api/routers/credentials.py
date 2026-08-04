@@ -56,6 +56,9 @@ from api.models import (
 )
 from open_notebook.database.repository import ensure_record_id, repo_delete, repo_query
 from open_notebook.domain.credential import Credential
+from open_notebook.ai.key_provider import provision_provider_keys
+from open_notebook.ai.model_assignment import auto_assign_default_models
+from open_notebook.ai.model_discovery import sync_provider_models
 
 router = APIRouter(prefix="/credentials", tags=["credentials"])
 
@@ -174,6 +177,17 @@ async def create_credential(request: CreateCredentialRequest):
             num_ctx=request.num_ctx,
         )
         await cred.save()
+
+        # Best-effort model refresh so new credentials become usable immediately.
+        try:
+            await provision_provider_keys(cred.provider, cred)
+            await sync_provider_models(cred.provider, auto_register=True)
+            await auto_assign_default_models()
+        except Exception as sync_error:
+            logger.warning(
+                f"Credential {cred.provider}/{cred.id} saved but model sync failed: {sync_error}"
+            )
+
         return credential_to_response(cred, 0)
 
     except Exception as e:
@@ -246,6 +260,16 @@ async def update_credential(credential_id: str, request: UpdateCredentialRequest
             cred.num_ctx = request.num_ctx or None
 
         await cred.save()
+
+        try:
+            await provision_provider_keys(cred.provider, cred)
+            await sync_provider_models(cred.provider, auto_register=True)
+            await auto_assign_default_models()
+        except Exception as sync_error:
+            logger.warning(
+                f"Credential {cred.provider}/{cred.id} updated but model sync failed: {sync_error}"
+            )
+
         models = await cred.get_linked_models()
         return credential_to_response(cred, len(models))
 

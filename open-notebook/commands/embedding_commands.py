@@ -1,4 +1,5 @@
 import time
+from pathlib import Path
 from typing import Dict, List, Literal, Optional
 
 from loguru import logger
@@ -10,6 +11,7 @@ from open_notebook.database.repository import ensure_record_id, repo_insert, rep
 from open_notebook.exceptions import ConfigurationError
 from open_notebook.domain.notebook import Note, Source, SourceInsight
 from open_notebook.utils.chunking import ContentType, chunk_text, detect_content_type
+from open_notebook.utils.document_preprocessor import DocumentChunk, preprocess_document
 from open_notebook.utils.embedding import generate_embedding, generate_embeddings
 
 
@@ -361,8 +363,36 @@ async def embed_source_command(input_data: EmbedSourceInput) -> EmbedSourceOutpu
         content_type = detect_content_type(source.full_text, file_path)
         logger.debug(f"Detected content type: {content_type.value}")
 
-        # 4. Chunk text using appropriate splitter
-        chunks = chunk_text(source.full_text, content_type=content_type)
+        # 4. Preprocess extracted document text before embedding. PDF extraction
+        # often preserves visual layout, so semantic cleanup happens here.
+        preprocessed = preprocess_document(
+            source.full_text,
+            source_title=source.title,
+            source_file=file_path,
+        )
+        semantic_chunks = preprocessed.chunks
+        if not semantic_chunks:
+            logger.warning(
+                f"Preprocessor produced no chunks for source {input_data.source_id}; "
+                "falling back to legacy chunk_text splitter"
+            )
+            fallback_chunks = chunk_text(
+                source.full_text,
+                content_type=content_type,
+                file_path=file_path,
+            )
+            source_file = Path(file_path).name if file_path else None
+            semantic_chunks = [
+                DocumentChunk(
+                    content=chunk,
+                    title=source.title,
+                    source_file=source_file,
+                    section=source.title,
+                    chunk_index=idx,
+                )
+                for idx, chunk in enumerate(fallback_chunks)
+            ]
+        chunks = [chunk.content for chunk in semantic_chunks]
         total_chunks = len(chunks)
 
         # Log chunk statistics for debugging
@@ -396,6 +426,12 @@ async def embed_source_command(input_data: EmbedSourceInput) -> EmbedSourceOutpu
                 "order": idx,
                 "content": chunk,
                 "embedding": embedding,
+                "title": semantic_chunks[idx].title,
+                "subtitle": semantic_chunks[idx].subtitle,
+                "page_number": semantic_chunks[idx].page_number,
+                "source_file": semantic_chunks[idx].source_file,
+                "section": semantic_chunks[idx].section,
+                "chunk_index": semantic_chunks[idx].chunk_index,
             }
             for idx, (chunk, embedding) in enumerate(zip(chunks, embeddings))
         ]

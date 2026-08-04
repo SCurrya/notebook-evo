@@ -145,6 +145,107 @@ class TestNotebookDomain:
         assert "Notebook(id=" not in context
 
     @pytest.mark.asyncio
+    async def test_notebook_get_sources_uses_reference_relationships(self):
+        """Test notebook sources are read from reference links tied to the notebook."""
+        notebook = Notebook(id="notebook:test", name="Test", description="Test")
+        source_row = {
+            "source": {
+                "id": "source:first",
+                "title": "First Source",
+                "topics": [],
+                "full_text": "Linked source",
+                "asset": None,
+                "command": None,
+                "created": "2026-06-23T00:00:00+00:00",
+                "updated": "2026-06-23T00:00:00+00:00",
+            }
+        }
+
+        with patch("open_notebook.domain.notebook.repo_query", new=AsyncMock(return_value=[source_row])) as mock_query:
+            sources = await notebook.get_sources()
+
+        assert len(sources) == 1
+        assert sources[0].id == "source:first"
+        assert sources[0].title == "First Source"
+        assert "select out as source from reference where in=$id" in mock_query.await_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_notebook_get_notes_uses_artifact_relationships(self):
+        """Test notebook notes are read from artifact links tied to the notebook."""
+        notebook = Notebook(id="notebook:test", name="Test", description="Test")
+        note_row = {
+            "note": {
+                "id": "note:first",
+                "title": "First Note",
+                "content": "Linked note",
+                "note_type": "human",
+                "created": "2026-06-23T00:00:00+00:00",
+                "updated": "2026-06-23T00:00:00+00:00",
+            }
+        }
+
+        with patch("open_notebook.domain.notebook.repo_query", new=AsyncMock(return_value=[note_row])) as mock_query:
+            notes = await notebook.get_notes()
+
+        assert len(notes) == 1
+        assert notes[0].id == "note:first"
+        assert notes[0].title == "First Note"
+        assert "select out as note from artifact where in=$id" in mock_query.await_args.args[0]
+
+    @pytest.mark.asyncio
+    async def test_notebook_delete_preview_uses_inbound_relationship_counts(self):
+        """Test delete preview counts notes and sources from notebook-inbound relationships."""
+        notebook = Notebook(id="notebook:test", name="Test", description="Test")
+
+        repo_results = [
+            [{"count": 3}],
+            ["source:exclusive", "source:shared"],
+            [{"count": 0}],
+            [{"count": 1}],
+        ]
+
+        with patch("open_notebook.domain.notebook.repo_query", new=AsyncMock(side_effect=repo_results)) as mock_query:
+            preview = await notebook.get_delete_preview()
+
+        assert preview == {
+            "note_count": 3,
+            "exclusive_source_count": 1,
+            "shared_source_count": 1,
+        }
+        normalize = lambda q: " ".join(q.lower().split())
+        assert "from artifact where in = $notebook_id" in normalize(mock_query.await_args_list[0].args[0])
+        assert "select value out from reference where in = $notebook_id" in normalize(mock_query.await_args_list[1].args[0])
+        assert "from reference where out = $source_id and in != $notebook_id" in normalize(mock_query.await_args_list[2].args[0])
+
+    @pytest.mark.asyncio
+    async def test_notebook_delete_uses_inbound_relationship_cleanup(self):
+        """Test notebook deletion removes inbound artifact/reference edges."""
+        notebook = Notebook(id="notebook:test", name="Test", description="Test")
+        note = Note(id="note:first", title="First Note", content="Linked note")
+        exclusive_source = Source(id="source:exclusive", title="Exclusive Source")
+
+        with (
+            patch.object(Notebook, "get_notes", new=AsyncMock(return_value=[note])),
+            patch.object(Note, "delete", new=AsyncMock(return_value=True)),
+            patch.object(Notebook, "_get_related_source_ids", new=AsyncMock(return_value=["source:exclusive", "source:shared"])),
+            patch.object(Notebook, "_count_other_notebooks_for_source", new=AsyncMock(side_effect=[0, 1])),
+            patch("open_notebook.domain.notebook.Source.get", new=AsyncMock(return_value=exclusive_source)),
+            patch.object(Source, "delete", new=AsyncMock(return_value=True)),
+            patch("open_notebook.domain.notebook.repo_query", new=AsyncMock(return_value=[])) as mock_query,
+            patch("open_notebook.domain.base.ObjectModel.delete", new=AsyncMock(return_value=True)),
+        ):
+            result = await notebook.delete(delete_exclusive_sources=True)
+
+        assert result == {
+            "deleted_notes": 1,
+            "deleted_sources": 1,
+            "unlinked_sources": 1,
+        }
+        all_queries = " \n".join(call.args[0].lower() for call in mock_query.await_args_list)
+        assert "delete artifact where in = $notebook_id" in all_queries
+        assert "delete reference where in = $notebook_id" in all_queries
+
+    @pytest.mark.asyncio
     async def test_notebook_get_context_includes_note_content(self):
         """Test notebook context includes linked note content."""
         notebook = Notebook(id="notebook:test", name="Test", description="Test")
@@ -343,13 +444,18 @@ class TestSourceDomain:
         source = Source(id="source:test_valid", title="Test", full_text="Real content")
         with patch(
             "open_notebook.domain.notebook.submit_command", return_value="command:123"
-        ) as mock_submit:
+        ) as mock_submit, patch(
+            "open_notebook.domain.base.ObjectModel.save", new_callable=AsyncMock
+        ) as mock_save:
             result = await source.vectorize()
             mock_submit.assert_called_once_with(
                 "open_notebook",
                 "embed_source",
                 {"source_id": "source:test_valid"},
             )
+            mock_save.assert_awaited_once()
+            assert source.embedding_command.table_name == "command"
+            assert source.embedding_command.id == "123"
             assert result == "command:123"
 
 

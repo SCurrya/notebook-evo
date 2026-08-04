@@ -15,6 +15,7 @@ import os
 from typing import TYPE_CHECKING, List, Optional
 
 import numpy as np
+from esperanto import EmbeddingModel
 from loguru import logger
 
 from .chunking import CHUNK_SIZE, ContentType, chunk_text
@@ -135,13 +136,38 @@ async def generate_embeddings(
     # Lazy import to avoid circular dependency
     from open_notebook.ai.models import model_manager
 
-    embedding_model = await model_manager.get_embedding_model()
-    if not embedding_model:
+    defaults = await model_manager.get_defaults()
+    primary_model_id = defaults.default_embedding_model
+    embedding_models: list[EmbeddingModel] = []
+    configured_ids: list[str] = []
+
+    if primary_model_id:
+        primary = await model_manager.get_model(primary_model_id)
+        if isinstance(primary, EmbeddingModel):
+            embedding_models.append(primary)
+            configured_ids.append(primary_model_id)
+
+    for fallback_id in await model_manager.get_fallback_model_ids(
+        "embedding", primary_model_id=primary_model_id
+    ):
+        try:
+            fallback = await model_manager.get_model(fallback_id)
+            if isinstance(fallback, EmbeddingModel):
+                embedding_models.append(fallback)
+                configured_ids.append(fallback_id)
+        except Exception as error:
+            logger.warning(
+                "Skipping embedding fallback model {}: {}",
+                fallback_id,
+                error,
+            )
+
+    if not embedding_models:
         raise ValueError(
             "No embedding model configured. Please configure one in the Models section."
         )
 
-    model_name = getattr(embedding_model, "model_name", "unknown")
+    logger.info("Embedding model chain configured: {}", " -> ".join(configured_ids))
 
     # Log text sizes for debugging
     metrics: tuple[int, int, int, int] | None = None
@@ -176,31 +202,66 @@ async def generate_embeddings(
         end = start + EMBEDDING_BATCH_SIZE
         batch = texts[start:end]
 
-        for attempt in range(1, EMBEDDING_MAX_RETRIES + 1):
-            try:
-                batch_embeddings = await embedding_model.aembed(batch)
-                all_embeddings.extend(batch_embeddings)
+        batch_embeddings: List[List[float]] | None = None
+        errors: list[str] = []
+
+        for model_index, embedding_model in enumerate(embedding_models):
+            model_name = getattr(embedding_model, "model_name", "unknown")
+            provider = getattr(embedding_model, "provider", "unknown")
+
+            for attempt in range(1, EMBEDDING_MAX_RETRIES + 1):
+                try:
+                    batch_embeddings = await embedding_model.aembed(batch)
+                    if model_index > 0:
+                        logger.info(
+                            "Embedding fallback succeeded with provider={} model={} batch={}/{}",
+                            provider,
+                            model_name,
+                            batch_idx + 1,
+                            total_batches,
+                        )
+                    break
+                except Exception as e:
+                    cmd_context = f" (command: {command_id})" if command_id else ""
+                    errors.append(f"{provider}/{model_name}: {type(e).__name__}: {e}")
+                    if attempt < EMBEDDING_MAX_RETRIES:
+                        logger.warning(
+                            "Embedding batch {}/{} attempt {}/{} failed using "
+                            "provider={} model={}{}: {}. Retrying...",
+                            batch_idx + 1,
+                            total_batches,
+                            attempt,
+                            EMBEDDING_MAX_RETRIES,
+                            provider,
+                            model_name,
+                            cmd_context,
+                            e,
+                        )
+                        await asyncio.sleep(EMBEDDING_RETRY_DELAY)
+                    else:
+                        logger.error(
+                            "Embedding batch {}/{} failed after {} attempts using "
+                            "provider={} model={}{}: {}",
+                            batch_idx + 1,
+                            total_batches,
+                            EMBEDDING_MAX_RETRIES,
+                            provider,
+                            model_name,
+                            cmd_context,
+                            e,
+                        )
+
+            if batch_embeddings is not None:
                 break
-            except Exception as e:
-                cmd_context = f" (command: {command_id})" if command_id else ""
-                if attempt < EMBEDDING_MAX_RETRIES:
-                    logger.debug(
-                        f"Embedding batch {batch_idx + 1}/{total_batches} "
-                        f"attempt {attempt}/{EMBEDDING_MAX_RETRIES} failed "
-                        f"using model '{model_name}'{cmd_context}: {e}. Retrying..."
-                    )
-                    await asyncio.sleep(EMBEDDING_RETRY_DELAY)
-                else:
-                    logger.debug(
-                        f"Embedding batch {batch_idx + 1}/{total_batches} "
-                        f"failed after {EMBEDDING_MAX_RETRIES} attempts "
-                        f"using model '{model_name}'{cmd_context}: {e}"
-                    )
-                    raise RuntimeError(
-                        f"Failed to generate embeddings using model '{model_name}' "
-                        f"(batch {batch_idx + 1}/{total_batches}, "
-                        f"{len(batch)} texts): {e}"
-                    ) from e
+
+        if batch_embeddings is None:
+            raise RuntimeError(
+                "Failed to generate embeddings with all configured providers "
+                f"(batch {batch_idx + 1}/{total_batches}, {len(batch)} texts). "
+                f"Errors: {' | '.join(errors[-6:])}"
+            )
+
+        all_embeddings.extend(batch_embeddings)
 
     logger.debug(f"Generated {len(all_embeddings)} embeddings in {total_batches} batch(es)")
     return all_embeddings

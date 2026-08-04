@@ -1,0 +1,7 @@
+-- Rollback migration 15.
+REMOVE FIELD IF EXISTS title ON TABLE source_embedding;
+REMOVE FIELD IF EXISTS subtitle ON TABLE source_embedding;
+REMOVE FIELD IF EXISTS page_number ON TABLE source_embedding;
+REMOVE FIELD IF EXISTS source_file ON TABLE source_embedding;
+REMOVE FIELD IF EXISTS section ON TABLE source_embedding;
+REMOVE FIELD IF EXISTS chunk_index ON TABLE source_embedding;

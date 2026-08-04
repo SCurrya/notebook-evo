@@ -19,18 +19,32 @@ async def provision_langchain_model(
     tokens = token_count(content)
     model = None
     selection_reason = ""
+    selected_model_id = model_id
 
     if tokens > 105_000:
         selection_reason = f"large_context (content has {tokens} tokens)"
         logger.debug(
             f"Using large context model because the content has {tokens} tokens"
         )
+        defaults = await model_manager.get_defaults()
+        selected_model_id = defaults.large_context_model
         model = await model_manager.get_default_model("large_context", **kwargs)
     elif model_id:
         selection_reason = f"explicit model_id={model_id}"
         model = await model_manager.get_model(model_id, **kwargs)
     else:
         selection_reason = f"default for type={default_type}"
+        defaults = await model_manager.get_defaults()
+        if default_type == "chat":
+            selected_model_id = defaults.default_chat_model
+        elif default_type == "transformation":
+            selected_model_id = (
+                defaults.default_transformation_model or defaults.default_chat_model
+            )
+        elif default_type == "tools":
+            selected_model_id = defaults.default_tools_model or defaults.default_chat_model
+        elif default_type == "large_context":
+            selected_model_id = defaults.large_context_model
         model = await model_manager.get_default_model(default_type, **kwargs)
 
     logger.debug(f"Using model: {model}")
@@ -58,4 +72,34 @@ async def provision_langchain_model(
             f"Please check that the model configured for '{default_type}' is a language model, not an embedding or speech model."
         )
 
-    return model.to_langchain()
+    primary = model.to_langchain()
+
+    if model_id:
+        return primary
+
+    fallback_models = []
+    for fallback_id in await model_manager.get_fallback_model_ids(
+        default_type, primary_model_id=selected_model_id
+    ):
+        try:
+            fallback = await model_manager.get_model(fallback_id, **kwargs)
+            if isinstance(fallback, LanguageModel):
+                fallback_models.append(fallback.to_langchain())
+                logger.info(
+                    "Configured AI fallback for {}: primary={} fallback={}",
+                    default_type,
+                    selected_model_id,
+                    fallback_id,
+                )
+        except Exception as error:
+            logger.warning(
+                "Skipping fallback model {} for {}: {}",
+                fallback_id,
+                default_type,
+                error,
+            )
+
+    if fallback_models and hasattr(primary, "with_fallbacks"):
+        return primary.with_fallbacks(fallback_models)
+
+    return primary

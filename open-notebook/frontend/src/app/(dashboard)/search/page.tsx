@@ -14,8 +14,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Search, ChevronDown, AlertCircle, Settings, Save, MessageCircleQuestion } from 'lucide-react'
-import { useSearch } from '@/lib/hooks/use-search'
+import { Search, ChevronDown, AlertCircle, Settings, Save, MessageCircleQuestion, Sparkles } from 'lucide-react'
+import { useSearch, useSemanticSearch } from '@/lib/hooks/use-search'
 import { useAsk } from '@/lib/hooks/use-ask'
 import { useModelDefaults, useModels } from '@/lib/hooks/use-models'
 import { useModalManager } from '@/lib/hooks/use-modal-manager'
@@ -23,6 +23,7 @@ import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { StreamingResponse } from '@/components/search/StreamingResponse'
 import { AdvancedModelsDialog } from '@/components/search/AdvancedModelsDialog'
 import { SaveToNotebooksDialog } from '@/components/search/SaveToNotebooksDialog'
+import { SemanticSearchResults } from '@/components/search/SemanticSearchResults'
 import { PageHeader } from '@/components/ui/page-header'
 
 export default function SearchPage() {
@@ -43,6 +44,8 @@ export default function SearchPage() {
   const [searchType, setSearchType] = useState<'text' | 'vector'>('text')
   const [searchSources, setSearchSources] = useState(true)
   const [searchNotes, setSearchNotes] = useState(true)
+  // 搜索模式：keyword（关键词，使用 text/vector） / semantic（语义，使用嵌入向量）
+  const [searchMode, setSearchMode] = useState<'keyword' | 'semantic'>('keyword')
 
   // Ask state
   const [askQuestion, setAskQuestion] = useState(urlMode === 'ask' ? urlQuery : '')
@@ -60,6 +63,7 @@ export default function SearchPage() {
 
   // Hooks
   const searchMutation = useSearch()
+  const semanticSearchMutation = useSemanticSearch()
   const ask = useAsk()
   const { data: modelDefaults, isLoading: modelsLoading } = useModelDefaults()
   const { data: availableModels } = useModels()
@@ -86,15 +90,24 @@ export default function SearchPage() {
   const handleSearch = useCallback(() => {
     if (!searchQuery.trim()) return
 
-    searchMutation.mutate({
-      query: searchQuery,
-      type: searchType,
-      limit: 100,
-      search_sources: searchSources,
-      search_notes: searchNotes,
-      minimum_score: 0.2
-    })
-  }, [searchQuery, searchType, searchSources, searchNotes, searchMutation])
+    // 根据搜索模式调用不同的搜索接口
+    if (searchMode === 'semantic') {
+      semanticSearchMutation.mutate({
+        query: searchQuery,
+        limit: 100,
+        minimum_score: 0.2,
+      })
+    } else {
+      searchMutation.mutate({
+        query: searchQuery,
+        type: searchType,
+        limit: 100,
+        search_sources: searchSources,
+        search_notes: searchNotes,
+        minimum_score: 0.2
+      })
+    }
+  }, [searchQuery, searchType, searchSources, searchNotes, searchMutation, searchMode, semanticSearchMutation])
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -323,6 +336,41 @@ export default function SearchPage() {
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Search Mode Toggle - 关键词 / 语义 */}
+                <div className="space-y-2" role="group" aria-labelledby="search-mode-label">
+                  <span id="search-mode-label" className="text-sm font-medium leading-none">
+                    {t('searchPage.searchType')}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={searchMode === 'keyword' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setSearchMode('keyword')}
+                      disabled={searchMutation.isPending || semanticSearchMutation.isPending}
+                    >
+                      <Search className="h-3.5 w-3.5 mr-1" />
+                      {t('searchPage.textSearch')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={searchMode === 'semantic' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setSearchMode('semantic')}
+                      disabled={!hasEmbeddingModel || searchMutation.isPending || semanticSearchMutation.isPending}
+                    >
+                      <Sparkles className="h-3.5 w-3.5 mr-1" />
+                      {t('searchPage.vectorSearch')}
+                    </Button>
+                  </div>
+                  {!hasEmbeddingModel && (
+                    <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-500">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>{t('searchPage.vectorSearchWarning')}</span>
+                    </div>
+                  )}
+                </div>
+
                 {/* Search Input */}
                 <div className="space-y-2">
                   <Label htmlFor="search-query" className="sr-only">
@@ -336,18 +384,18 @@ export default function SearchPage() {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyPress={handleKeyPress}
-                      disabled={searchMutation.isPending}
+                      disabled={searchMutation.isPending || semanticSearchMutation.isPending}
                       className="flex-1"
                       aria-label={t('common.accessibility.enterSearch')}
                       autoComplete="off"
                     />
                     <Button
                       onClick={handleSearch}
-                      disabled={searchMutation.isPending || !searchQuery.trim()}
+                      disabled={searchMutation.isPending || semanticSearchMutation.isPending || !searchQuery.trim()}
                       aria-label={t('common.accessibility.searchKBBtn')}
                       className="w-full sm:w-auto"
                     >
-                      {searchMutation.isPending ? (
+                      {searchMutation.isPending || semanticSearchMutation.isPending ? (
                         <LoadingSpinner size="sm" />
                       ) : (
                         <Search className="h-4 w-4 mr-2" />
@@ -358,7 +406,8 @@ export default function SearchPage() {
                   <p className="text-xs text-muted-foreground">{t('searchPage.pressToSearch')}</p>
                 </div>
 
-                {/* Search Options */}
+                {/* Search Options - 仅在关键词模式下显示（语义搜索始终使用向量） */}
+                {searchMode === 'keyword' && (
                 <div className="space-y-4">
                   {/* Search Type */}
                   <div className="space-y-2" role="group" aria-labelledby="search-type-label">
@@ -428,9 +477,21 @@ export default function SearchPage() {
                     </div>
                   </div>
                 </div>
+                )}
 
-                {/* Search Results */}
-                {searchMutation.data && (
+                {/* Semantic Search Results - 语义搜索结果 */}
+                {searchMode === 'semantic' && semanticSearchMutation.data && (
+                  <div className="mt-6">
+                    <SemanticSearchResults
+                      results={semanticSearchMutation.data.results}
+                      totalCount={semanticSearchMutation.data.total_count}
+                      query={semanticSearchMutation.data.query}
+                    />
+                  </div>
+                )}
+
+                {/* Keyword Search Results - 关键词搜索结果 */}
+                {searchMode === 'keyword' && searchMutation.data && (
                   <div className="mt-6 space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-medium">

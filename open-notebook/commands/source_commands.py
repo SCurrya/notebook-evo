@@ -13,9 +13,12 @@ from open_notebook.exceptions import ConfigurationError
 try:
     from open_notebook.graphs.source import source_graph
     from open_notebook.graphs.transformation import graph as transform_graph
+    _GRAPHS_AVAILABLE = True
 except ImportError as e:
-    logger.error(f"Failed to import graphs: {e}")
-    raise ValueError("graphs not available")
+    logger.warning(f"Graphs not available, source processing will be limited: {e}")
+    source_graph = None  # type: ignore[assignment]
+    transform_graph = None  # type: ignore[assignment]
+    _GRAPHS_AVAILABLE = False
 
 
 def full_model_dump(model):
@@ -65,28 +68,42 @@ async def process_source_command(
     Process source content using the source_graph workflow
     """
     start_time = time.time()
+    _cmd_log_id = input_data.source_id
 
     try:
-        logger.info(f"Starting source processing for source: {input_data.source_id}")
-        logger.info(f"Notebook IDs: {input_data.notebook_ids}")
-        logger.info(f"Transformations: {input_data.transformations}")
-        logger.info(f"Embed: {input_data.embed}")
+        logger.info(
+            f"[PDF/PROCESS] ▸ START source={_cmd_log_id} "
+            f"notebooks={len(input_data.notebook_ids)} "
+            f"transforms={len(input_data.transformations)} embed={input_data.embed}"
+        )
+        logger.debug(
+            f"[PDF/PROCESS]   input notebook_ids={input_data.notebook_ids} "
+            f"transform_ids={input_data.transformations}"
+        )
+        logger.debug(
+            f"[PDF/PROCESS]   content_state keys="
+            f"{list(input_data.content_state.keys()) if input_data.content_state else None}"
+        )
 
         # 1. Load transformation objects from IDs
         transformations = []
         for trans_id in input_data.transformations:
-            logger.info(f"Loading transformation: {trans_id}")
+            logger.info(f"[PDF/PROCESS] ▸ loading transformation {trans_id}")
             transformation = await Transformation.get(trans_id)
             if not transformation:
+                logger.error(f"[PDF/PROCESS] ✗ transformation {trans_id} not found")
                 raise ValueError(f"Transformation '{trans_id}' not found")
             transformations.append(transformation)
+            logger.info(f"[PDF/PROCESS] ✓ transformation {trans_id} loaded")
 
-        logger.info(f"Loaded {len(transformations)} transformations")
+        logger.info(f"[PDF/PROCESS] ✓ {len(transformations)} transformations loaded")
 
         # 2. Get existing source record to update its command field
         source = await Source.get(input_data.source_id)
         if not source:
+            logger.error(f"[PDF/PROCESS] ✗ source {input_data.source_id} not found")
             raise ValueError(f"Source '{input_data.source_id}' not found")
+        logger.info(f"[PDF/PROCESS] ✓ source {source.id} title={source.title!r} loaded")
 
         # Update source with command reference
         source.command = (
@@ -96,12 +113,25 @@ async def process_source_command(
         )
         await source.save()
 
-        logger.info(f"Updated source {source.id} with command reference")
+        logger.info(
+            f"[PDF/PROCESS] ✓ source {source.id} linked to command "
+            f"{input_data.execution_context.command_id if input_data.execution_context else 'N/A'}"
+        )
 
         # 3. Process source with all notebooks
-        logger.info(f"Processing source with {len(input_data.notebook_ids)} notebooks")
+        logger.info(
+            f"[PDF/PROCESS] ▸ invoking source_graph with "
+            f"{len(input_data.notebook_ids)} notebooks "
+            f"transforms={len(transformations)} embed={input_data.embed}"
+        )
 
         # Execute source_graph with all notebooks
+        if source_graph is None:
+            logger.error(
+                f"[PDF/PROCESS] ✗ source_graph not available (graphs import failed)"
+            )
+            raise ValueError("source_graph is not available (graphs import failed)")
+        graph_start = time.time()
         result = await source_graph.ainvoke(
             {  # type: ignore[arg-type]
                 "content_state": input_data.content_state,
@@ -111,8 +141,22 @@ async def process_source_command(
                 "source_id": input_data.source_id,  # Add the source_id to the state
             }
         )
+        graph_time = time.time() - graph_start
+        logger.info(
+            f"[PDF/PROCESS] ✓ source_graph completed in {graph_time:.2f}s "
+            f"(result keys={list(result.keys()) if isinstance(result, dict) else 'N/A'})"
+        )
 
         processed_source = result["source"]
+        try:
+            full_text_len = len(processed_source.full_text or "")
+        except Exception as _e:
+            full_text_len = -1
+            logger.debug(f"[PDF/PROCESS]   could not read full_text: {_e}")
+        logger.info(
+            f"[PDF/PROCESS] ✓ processed_source={processed_source.id} "
+            f"full_text_len={full_text_len}"
+        )
 
         # 4. Gather processing results (notebook associations handled by source_graph)
         # Note: embedding is fire-and-forget (async job), so we can't query the
@@ -124,10 +168,9 @@ async def process_source_command(
         processing_time = time.time() - start_time
         embed_status = "submitted" if input_data.embed else "skipped"
         logger.info(
-            f"Successfully processed source: {processed_source.id} in {processing_time:.2f}s"
-        )
-        logger.info(
-            f"Created {insights_created} insights, embedding {embed_status}"
+            f"[PDF/PROCESS] ◂ END source={processed_source.id} "
+            f"in {processing_time:.2f}s insights={insights_created} "
+            f"full_text={full_text_len}ch embed={embed_status}"
         )
 
         return SourceProcessingOutput(
@@ -141,7 +184,10 @@ async def process_source_command(
     except ValueError as e:
         # Validation errors are permanent failures - don't retry
         processing_time = time.time() - start_time
-        logger.error(f"Source processing failed: {e}")
+        logger.error(
+            f"[PDF/PROCESS] ✗ VALIDATION ERROR source={_cmd_log_id} "
+            f"in {processing_time:.2f}s: {e}"
+        )
         return SourceProcessingOutput(
             success=False,
             source_id=input_data.source_id,
@@ -150,8 +196,9 @@ async def process_source_command(
         )
     except Exception as e:
         # Transient failure - will be retried (surreal-commands logs final failure)
-        logger.debug(
-            f"Transient error processing source {input_data.source_id}: {e}"
+        logger.error(
+            f"[PDF/PROCESS] ✗ TRANSIENT ERROR source={_cmd_log_id} "
+            f"(will retry): {type(e).__name__}: {e}"
         )
         raise
 
@@ -230,6 +277,8 @@ async def run_transformation_command(
             )
 
         # Run transformation graph (includes LLM call + insight creation)
+        if transform_graph is None:
+            raise ValueError("transform_graph is not available (graphs import failed)")
         await transform_graph.ainvoke(
             input=dict(source=source, transformation=transformation)
         )

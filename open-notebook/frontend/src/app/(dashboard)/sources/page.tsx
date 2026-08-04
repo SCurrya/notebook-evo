@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { getApiErrorKey } from '@/lib/utils/error-handler'
 import { PageHeader } from '@/components/ui/page-header'
+import { navigateToStaticHref, sourceDetailHref } from '@/lib/routes'
 
 export default function SourcesPage() {
   const { t, language } = useTranslation()
@@ -28,10 +29,7 @@ export default function SourcesPage() {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [sortBy, setSortBy] = useState<'created' | 'updated'>('updated')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; source: SourceListResponse | null }>({
-    open: false,
-    source: null
-  })
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; source: SourceListResponse | null }>({ open: false, source: null })
   const router = useRouter()
   const tableRef = useRef<HTMLTableElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -42,7 +40,6 @@ export default function SourcesPage() {
 
   const fetchSources = useCallback(async (reset = false) => {
     try {
-      // Check flags before proceeding
       if (!reset && (loadingMoreRef.current || !hasMoreRef.current)) {
         return
       }
@@ -67,10 +64,9 @@ export default function SourcesPage() {
       if (reset) {
         setSources(data)
       } else {
-        setSources(prev => [...prev, ...data])
+        setSources((prev) => [...prev, ...data])
       }
 
-      // Check if we have more data
       const hasMoreData = data.length === PAGE_SIZE
       hasMoreRef.current = hasMoreData
       offsetRef.current += data.length
@@ -83,16 +79,14 @@ export default function SourcesPage() {
       setLoadingMore(false)
       loadingMoreRef.current = false
     }
-  }, [sortBy, sortOrder, t('sources.failedToLoad')])
+  }, [sortBy, sortOrder, t])
 
-  // Initial load and when sort changes
   useEffect(() => {
     fetchSources(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortBy, sortOrder])
 
   useEffect(() => {
-    // Focus the table when component mounts or sources change
     if (sources.length > 0 && tableRef.current) {
       tableRef.current.focus()
     }
@@ -107,7 +101,6 @@ export default function SourcesPage() {
           e.preventDefault()
           setSelectedIndex((prev) => {
             const newIndex = Math.min(prev + 1, sources.length - 1)
-            // Scroll to keep selected row visible
             setTimeout(() => scrollToSelectedRow(newIndex), 0)
             return newIndex
           })
@@ -116,7 +109,6 @@ export default function SourcesPage() {
           e.preventDefault()
           setSelectedIndex((prev) => {
             const newIndex = Math.max(prev - 1, 0)
-            // Scroll to keep selected row visible
             setTimeout(() => scrollToSelectedRow(newIndex), 0)
             return newIndex
           })
@@ -124,7 +116,7 @@ export default function SourcesPage() {
         case 'Enter':
           e.preventDefault()
           if (sources[selectedIndex]) {
-            router.push(`/sources/${sources[selectedIndex].id}`)
+            navigateToStaticHref(sourceDetailHref(sources[selectedIndex].id), router)
           }
           break
         case 'Home':
@@ -149,7 +141,6 @@ export default function SourcesPage() {
     const scrollContainer = scrollContainerRef.current
     if (!scrollContainer) return
 
-    // Find the selected row element
     const rows = scrollContainer.querySelectorAll('tbody tr')
     const selectedRow = rows[index] as HTMLElement
     if (!selectedRow) return
@@ -157,17 +148,13 @@ export default function SourcesPage() {
     const containerRect = scrollContainer.getBoundingClientRect()
     const rowRect = selectedRow.getBoundingClientRect()
 
-    // Check if row is above visible area
     if (rowRect.top < containerRect.top) {
       selectedRow.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-    // Check if row is below visible area
-    else if (rowRect.bottom > containerRect.bottom) {
+    } else if (rowRect.bottom > containerRect.bottom) {
       selectedRow.scrollIntoView({ behavior: 'smooth', block: 'end' })
     }
   }
 
-  // Set up scroll listener after sources are loaded
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current
     if (!scrollContainer) return
@@ -175,9 +162,7 @@ export default function SourcesPage() {
     let scrollTimeout: NodeJS.Timeout | null = null
 
     const handleScroll = () => {
-      if (scrollTimeout) {
-        clearTimeout(scrollTimeout)
-      }
+      if (scrollTimeout) clearTimeout(scrollTimeout)
 
       scrollTimeout = setTimeout(() => {
         if (!scrollContainerRef.current) return
@@ -185,7 +170,6 @@ export default function SourcesPage() {
         const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current
         const distanceFromBottom = scrollHeight - scrollTop - clientHeight
 
-        // Load more when within 200px of the bottom
         if (distanceFromBottom < 200 && !loadingMoreRef.current && hasMoreRef.current) {
           fetchSources(false)
         }
@@ -193,7 +177,7 @@ export default function SourcesPage() {
     }
 
     scrollContainer.addEventListener('scroll', handleScroll)
-    handleScroll() // Check on mount
+    handleScroll()
 
     return () => {
       scrollContainer.removeEventListener('scroll', handleScroll)
@@ -205,10 +189,8 @@ export default function SourcesPage() {
 
   const toggleSort = (field: 'created' | 'updated') => {
     if (sortBy === field) {
-      // Toggle order if clicking the same field
-      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
     } else {
-      // Switch to new field with default desc order
       setSortBy(field)
       setSortOrder('desc')
     }
@@ -228,11 +210,11 @@ export default function SourcesPage() {
 
   const handleRowClick = useCallback((index: number, sourceId: string) => {
     setSelectedIndex(index)
-    router.push(`/sources/${sourceId}`)
+    navigateToStaticHref(sourceDetailHref(sourceId), router)
   }, [router])
 
   const handleDeleteClick = useCallback((e: React.MouseEvent, source: SourceListResponse) => {
-    e.stopPropagation() // Prevent row click
+    e.stopPropagation()
     setDeleteDialog({ open: true, source })
   }, [])
 
@@ -242,11 +224,10 @@ export default function SourcesPage() {
     try {
       await sourcesApi.delete(deleteDialog.source.id)
       toast.success(t('sources.deleteSuccess'))
-      // Remove the deleted source from the list
-      setSources(prev => prev.filter(s => s.id !== deleteDialog.source?.id))
+      setSources((prev) => prev.filter((s) => s.id !== deleteDialog.source?.id))
       setDeleteDialog({ open: false, source: null })
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { detail?: string } }, message?: string };
+      const error = err as { response?: { data?: { detail?: string } }, message?: string }
       console.error('Failed to delete source:', error)
       toast.error(t(getApiErrorKey(error.response?.data?.detail || error.message)))
     }
@@ -275,11 +256,7 @@ export default function SourcesPage() {
   if (sources.length === 0) {
     return (
       <AppShell>
-        <EmptyState
-          icon={FileText}
-          title={t('sources.noSourcesYet')}
-          description={t('sources.allSourcesDescShort')}
-        />
+        <EmptyState icon={FileText} title={t('sources.noSourcesYet')} description={t('sources.allSourcesDescShort')} />
       </AppShell>
     )
   }
@@ -294,129 +271,87 @@ export default function SourcesPage() {
         />
 
         <div className="flex-1 page-container py-6 min-h-0">
-          <div ref={scrollContainerRef} className="rounded-xl border overflow-auto elevation-1">
-          <table
-            ref={tableRef}
-            tabIndex={0}
-            className="w-full min-w-[800px] outline-none table-fixed"
-          >
-            <colgroup>
-              <col className="w-[120px]" />
-              <col className="w-auto" />
-              <col className="w-[140px]" />
-              <col className="w-[100px]" />
-              <col className="w-[100px]" />
-              <col className="w-[100px]" />
-            </colgroup>
-            <thead className="sticky top-0 bg-background z-10">
-              <tr className="border-b bg-muted/50">
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
-                  {t('common.type')}
-                </th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
-                  {t('common.title')}
-                </th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden sm:table-cell">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleSort('created')}
-                    className="h-8 px-2 hover:bg-muted"
-                  >
-                    {t('common.created_label')}
-                    <ArrowUpDown className={cn(
-                      "ml-2 h-3 w-3",
-                      sortBy === 'created' ? 'opacity-100' : 'opacity-30'
-                    )} />
-                    {sortBy === 'created' && (
-                      <span className="ml-1 text-xs">
-                        {sortOrder === 'asc' ? '↑' : '↓'}
-                      </span>
-                    )}
-                  </Button>
-                </th>
-                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground hidden md:table-cell">
-                  {t('sources.insights')}
-                </th>
-                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground hidden lg:table-cell">
-                  {t('sources.embedded')}
-                </th>
-                <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
-                  {t('common.actions')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sources.map((source, index) => (
-                <tr
-                  key={source.id}
-                  onClick={() => handleRowClick(index, source.id)}
-                  onMouseEnter={() => setSelectedIndex(index)}
-                  className={cn(
-                    "border-b transition-colors cursor-pointer",
-                    selectedIndex === index
-                      ? "bg-accent"
-                      : "hover:bg-muted/50"
-                  )}
-                >
-                  <td className="h-12 px-4">
-                    <div className="flex items-center gap-2">
-                      {getSourceIcon(source)}
-                      <Badge variant="secondary" className="text-xs">
-                        {getSourceType(source)}
-                      </Badge>
-                    </div>
-                  </td>
-                  <td className="h-12 px-4">
-                    <div className="flex flex-col overflow-hidden">
-                      <span className="font-medium truncate">
-                        {source.title || t('sources.untitledSource')}
-                      </span>
-                      {source.asset?.url && (
-                        <span className="text-xs text-muted-foreground truncate">
-                          {source.asset.url}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="h-12 px-4 text-muted-foreground text-sm hidden sm:table-cell">
-                    {formatDistanceToNow(new Date(source.created), { 
-                      addSuffix: true,
-                      locale: getDateLocale(language)
-                    })}
-                  </td>
-                  <td className="h-12 px-4 text-center hidden md:table-cell">
-                    <span className="text-sm font-medium">{source.insights_count || 0}</span>
-                  </td>
-                  <td className="h-12 px-4 text-center hidden lg:table-cell">
-                    <Badge variant={source.embedded ? "default" : "secondary"} className="text-xs">
-                      {source.embedded ? t('sources.yes') : t('sources.no')}
-                    </Badge>
-                  </td>
-                  <td className="h-12 px-4 text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => handleDeleteClick(e, source)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
+          <div ref={scrollContainerRef} className="rounded-2xl border bg-card/85 overflow-auto elevation-1">
+            <table ref={tableRef} tabIndex={0} className="w-full min-w-[800px] outline-none table-fixed">
+              <colgroup>
+                <col className="w-[120px]" />
+                <col className="w-auto" />
+                <col className="w-[140px]" />
+                <col className="w-[100px]" />
+                <col className="w-[100px]" />
+                <col className="w-[100px]" />
+              </colgroup>
+              <thead className="sticky top-0 bg-background/95 backdrop-blur border-b z-10">
+                <tr className="border-b bg-muted/50">
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">{t('common.type')}</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">{t('common.title')}</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden sm:table-cell">
+                    <Button variant="ghost" size="sm" onClick={() => toggleSort('created')} className="h-8 px-2 hover:bg-muted rounded-lg">
+                      {t('common.created_label')}
+                      <ArrowUpDown className={cn('ml-2 h-3 w-3', sortBy === 'created' ? 'opacity-100' : 'opacity-30')} />
+                      {sortBy === 'created' && <span className="ml-1 text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>}
                     </Button>
-                  </td>
+                  </th>
+                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground hidden md:table-cell">{t('sources.insights')}</th>
+                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground hidden lg:table-cell">{t('sources.embedded')}</th>
+                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">{t('common.actions')}</th>
                 </tr>
-              ))}
-              {loadingMore && (
-                <tr>
-                  <td colSpan={6} className="h-16 text-center">
-                    <div className="flex items-center justify-center">
-                      <LoadingSpinner />
-                      <span className="ml-2 text-muted-foreground">{t('sources.loadingMore')}</span>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sources.map((source, index) => {
+                  const sourceHref = sourceDetailHref(source.id)
+                  const sourceTitle = source.title || t('sources.untitledSource')
+
+                  return (
+                  <tr key={source.id} onClick={() => handleRowClick(index, source.id)} onMouseEnter={() => setSelectedIndex(index)} className={cn('relative border-b transition-colors cursor-pointer', selectedIndex === index ? 'bg-accent/60' : 'hover:bg-muted/45')}>
+                    <td className="h-12 px-4">
+                      <a
+                        href={sourceHref}
+                        aria-label={`Open source: ${sourceTitle}`}
+                        className="absolute inset-0 z-10 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        onClick={() => setSelectedIndex(index)}
+                      />
+                      <div className="flex items-center gap-2">
+                        {getSourceIcon(source)}
+                        <Badge variant="secondary" className="text-xs rounded-full">{getSourceType(source)}</Badge>
+                      </div>
+                    </td>
+                    <td className="relative z-20 h-12 px-4 pointer-events-none">
+                      <div className="flex flex-col overflow-hidden">
+                        <span className="font-medium truncate">{sourceTitle}</span>
+                        {source.asset?.url && <span className="text-xs text-muted-foreground truncate">{source.asset.url}</span>}
+                      </div>
+                    </td>
+                    <td className="relative z-20 h-12 px-4 text-muted-foreground text-sm hidden sm:table-cell pointer-events-none">
+                      {formatDistanceToNow(new Date(source.created), { addSuffix: true, locale: getDateLocale(language) })}
+                    </td>
+                    <td className="relative z-20 h-12 px-4 text-center hidden md:table-cell pointer-events-none">
+                      <span className="text-sm font-medium">{source.insights_count || 0}</span>
+                    </td>
+                    <td className="relative z-20 h-12 px-4 text-center hidden lg:table-cell pointer-events-none">
+                      <Badge variant={source.embedded ? 'default' : 'secondary'} className="text-xs rounded-full">{source.embedded ? t('sources.yes') : t('sources.no')}</Badge>
+                    </td>
+                    <td className="relative z-30 h-12 px-4 text-right">
+                      <Button variant="ghost" size="icon" onClick={(e) => handleDeleteClick(e, source)} className="text-destructive hover:text-destructive rounded-full">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                  )
+                })}
+                {loadingMore && (
+                  <tr>
+                    <td colSpan={6} className="h-16 text-center">
+                      <div className="flex items-center justify-center">
+                        <LoadingSpinner />
+                        <span className="ml-2 text-muted-foreground">{t('sources.loadingMore')}</span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

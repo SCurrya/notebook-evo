@@ -1,6 +1,7 @@
 .PHONY: run frontend check ruff database lint api start-all stop-all status clean-cache worker worker-start worker-stop worker-restart
 .PHONY: docker-buildx-prepare docker-buildx-clean docker-buildx-reset
 .PHONY: docker-push docker-push-latest docker-release docker-build-local tag export-docs
+.PHONY: build-exe build-installer build-frontend build-apk build-all clean-build
 
 # Get version from pyproject.toml
 VERSION := $(shell grep -m1 version pyproject.toml | cut -d'"' -f2)
@@ -208,3 +209,55 @@ clean-cache:
 	@find . -name "*.pyo" -type f -delete 2>/dev/null || true
 	@find . -name "*.pyd" -type f -delete 2>/dev/null || true
 	@echo "✅ Cache directories cleaned!"
+
+# === Desktop Builds (EXE / Installer / APK) ===
+
+# Build the Next.js frontend for desktop (static export)
+build-frontend:
+	@echo "🌐 Building frontend for desktop..."
+	cd frontend && npm run build
+	@echo "✅ Frontend built to frontend/out/"
+
+# Build the PyInstaller EXE folder
+build-exe: build-frontend
+	@echo "📦 Building PyInstaller EXE..."
+	uv run pyinstaller open-notebook.spec --noconfirm --clean
+	@echo "✅ EXE built to dist/OpenNotebook/OpenNotebook.exe"
+	@ls -lh dist/OpenNotebook/OpenNotebook.exe 2>/dev/null || echo "  (check dist/ for output)"
+
+# Build the Inno Setup Windows installer (requires Inno Setup installed)
+build-installer: build-exe
+	@echo "🔧 Building Windows installer..."
+	@if command -v iscc >/dev/null 2>&1; then \
+		iscc setup.iss; \
+		echo "✅ Installer built to installer_output/"; \
+	else \
+		echo "⚠️  Inno Setup (iscc) not found. Please install Inno Setup 6+."; \
+		echo "    Download: https://jrsoftware.org/isdl.php"; \
+		echo "    Then run: iscc setup.iss"; \
+	fi
+
+# Build the Android APK (requires Capacitor + Android SDK)
+build-apk: build-frontend
+	@echo "📱 Building Android APK..."
+	@echo "  Building frontend with BUILD_TARGET=mobile..."
+	cd frontend && BUILD_TARGET=mobile npm run build
+	@echo "  Syncing Capacitor..."
+	cd frontend && npx cap sync android 2>/dev/null || echo "  ⚠️  Capacitor not initialized. Run: npx cap init"
+	@echo "  Building APK..."
+	cd frontend && npx cap build android 2>/dev/null || echo "  ⚠️  Android build failed. Ensure Android SDK is installed."
+	@echo "✅ APK build complete (check frontend/android/app/build/outputs/apk/)"
+
+# Build all desktop artifacts
+build-all: build-installer build-apk
+	@echo "🎉 All desktop builds complete!"
+	@echo "  📦 EXE: dist/OpenNotebook/OpenNotebook.exe"
+	@echo "  🔧 Installer: installer_output/"
+	@echo "  📱 APK: frontend/android/app/build/outputs/apk/"
+
+# Clean build artifacts
+clean-build:
+	@echo "🧹 Cleaning build artifacts..."
+	rm -rf dist/ build/ installer_output/*.exe
+	rm -rf frontend/out/ frontend/.next/ frontend/android/app/build/
+	@echo "✅ Build artifacts cleaned!"

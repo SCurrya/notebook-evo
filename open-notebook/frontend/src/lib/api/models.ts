@@ -73,6 +73,19 @@ export const modelsApi = {
   },
 
   /**
+   * Sync all models and auto-assign defaults in one pass
+   */
+  syncAllAndAssign: async () => {
+    const syncResult = await apiClient.post<AllProvidersSyncResult>('/models/sync')
+    const assignResult = await apiClient.post('/models/auto-assign')
+
+    return {
+      syncResult: syncResult.data,
+      assignResult: assignResult.data,
+    }
+  },
+
+  /**
    * Get count of registered models for a provider
    */
   getProviderModelCount: async (provider: string) => {

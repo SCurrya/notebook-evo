@@ -32,4 +32,9 @@ export const QUERY_KEYS = {
   episodeProfiles: ['podcasts', 'episode-profiles'] as const,
   speakerProfiles: ['podcasts', 'speaker-profiles'] as const,
   languages: ['languages'] as const,
+  // Phase 3: 差异化护城河模块
+  knowledgeGraph: (notebookId: string) => ['knowledge-graph', notebookId] as const,
+  shareLinks: (notebookId: string) => ['share', 'links', notebookId] as const,
+  sharedNotebook: (token: string) => ['share', 'notebook', token] as const,
+  apiKeys: ['api-keys'] as const,
 }

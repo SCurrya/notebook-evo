@@ -105,6 +105,10 @@ export function useCreateSource() {
             queryKey: QUERY_KEYS.sourcesInfinite(notebookId),
             refetchType: 'active'
           })
+          queryClient.invalidateQueries({
+            queryKey: QUERY_KEYS.notebook(notebookId),
+            refetchType: 'active'
+          })
         })
       } else if (variables.notebook_id) {
         queryClient.invalidateQueries({
@@ -115,11 +119,19 @@ export function useCreateSource() {
           queryKey: QUERY_KEYS.sourcesInfinite(variables.notebook_id),
           refetchType: 'active'
         })
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.notebook(variables.notebook_id),
+          refetchType: 'active'
+        })
       }
 
       // Invalidate general sources query too with immediate refetch
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.sources(),
+        refetchType: 'active'
+      })
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.notebooks,
         refetchType: 'active'
       })
 
@@ -158,6 +170,7 @@ export function useUpdateSource() {
       // Invalidate ALL sources queries (both general and notebook-specific)
       queryClient.invalidateQueries({ queryKey: ['sources'] })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.source(id) })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notebooks })
       toast({
         title: t('common.success'),
         description: t('sources.sourceUpdatedSuccess'),
@@ -185,6 +198,7 @@ export function useDeleteSource() {
       queryClient.invalidateQueries({ queryKey: ['sources'] })
       // Also invalidate the specific source
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.source(id) })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notebooks })
       toast({
         title: t('common.success'),
         description: t('sources.sourceDeletedSuccess'),
@@ -214,6 +228,10 @@ export function useFileUpload() {
       })
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.sourcesInfinite(variables.notebookId),
+        refetchType: 'active'
+      })
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.notebook(variables.notebookId),
         refetchType: 'active'
       })
       toast({
@@ -314,6 +332,7 @@ export function useAddSourcesToNotebook() {
       queryClient.invalidateQueries({ queryKey: ['sources'] })
       // Specifically invalidate the notebook's sources
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sources(notebookId) })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notebook(notebookId) })
       // Invalidate each affected source
       sourceIds.forEach(sourceId => {
         queryClient.invalidateQueries({ queryKey: QUERY_KEYS.source(sourceId) })
@@ -367,6 +386,7 @@ export function useRemoveSourceFromNotebook() {
       queryClient.invalidateQueries({ queryKey: ['sources'] })
       // Specifically invalidate the notebook's sources
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.sources(notebookId) })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notebook(notebookId) })
       // Also invalidate the specific source
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.source(sourceId) })
 

@@ -9,8 +9,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { ContextMode } from '@/app/(dashboard)/notebooks/[id]/page'
 import { useTranslation } from '@/lib/hooks/use-translation'
+import type { ContextMode } from '@/lib/types/notebook-context'
 
 interface ContextToggleProps {
   mode: ContextMode

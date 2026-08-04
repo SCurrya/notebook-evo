@@ -18,12 +18,12 @@ import { NoteEditorDialog } from './NoteEditorDialog'
 import { getDateLocale } from '@/lib/utils/date-locale'
 import { formatDistanceToNow } from 'date-fns'
 import { ContextToggle } from '@/components/common/ContextToggle'
-import { ContextMode } from '../[id]/page'
 import { useDeleteNote } from '@/lib/hooks/use-notes'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { CollapsibleColumn, createCollapseButton } from '@/components/notebooks/CollapsibleColumn'
 import { useNotebookColumnsStore } from '@/lib/stores/notebook-columns-store'
 import { useTranslation } from '@/lib/hooks/use-translation'
+import type { ContextMode } from '@/lib/types/notebook-context'
 
 interface NotesColumnProps {
   notes?: NoteResponse[]
@@ -50,9 +50,10 @@ export function NotesColumn({
 
   // Collapsible column state
   const { notesCollapsed, toggleNotes } = useNotebookColumnsStore()
+  const notesLabel = t('common.notes')
   const collapseButton = useMemo(
-    () => createCollapseButton(toggleNotes, t('common.notes')),
-    [toggleNotes, t('common.notes')]
+    () => createCollapseButton(toggleNotes, notesLabel),
+    [toggleNotes, notesLabel]
   )
 
   const handleDeleteClick = (noteId: string) => {

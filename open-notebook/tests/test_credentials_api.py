@@ -239,6 +239,8 @@ class TestAudioProviderWiring:
         assert "text_to_speech" in PROVIDER_MODALITIES["mistral"]
         assert "text_to_speech" in PROVIDER_MODALITIES["xai"]
         assert PROVIDER_MODALITIES["deepgram"] == ["text_to_speech"]
+        assert "speech_to_text" in PROVIDER_MODALITIES["openrouter"]
+        assert "text_to_speech" in PROVIDER_MODALITIES["openrouter"]
 
     def test_deepgram_has_env_and_test_model(self):
         from api.credentials_service import PROVIDER_ENV_CONFIG
@@ -268,6 +270,11 @@ class TestAudioMatrixWiring:
         # ElevenLabs Scribe STT must not be caught by the TTS "eleven" pattern
         assert classify_model_type("scribe_v1", "elevenlabs") == "speech_to_text"
         assert classify_model_type("eleven_multilingual_v2", "elevenlabs") == "text_to_speech"
+        # OpenRouter STT naming patterns must be routed to speech_to_text
+        assert classify_model_type("openai/whisper-1", "openrouter") == "speech_to_text"
+        assert classify_model_type("openai/gpt-4o-transcribe", "openrouter") == "speech_to_text"
+        assert classify_model_type("microsoft/mai-transcribe-1.5", "openrouter") == "speech_to_text"
+        assert classify_model_type("qwen/qwen3-asr-flash-2026-02-10", "openrouter") == "speech_to_text"
 
 
 if __name__ == "__main__":

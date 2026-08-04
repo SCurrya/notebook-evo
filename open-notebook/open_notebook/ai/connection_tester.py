@@ -24,6 +24,7 @@ TEST_MODELS = {
     "deepseek": ("deepseek-chat", "language"),
     "xai": ("grok-beta", "language"),
     "openrouter": ("openai/gpt-3.5-turbo", "language"),
+    "sensenova": ("deepseek-v4-flash", "language"),
     "voyage": ("voyage-3-lite", "embedding"),
     "elevenlabs": ("eleven_multilingual_v2", "text_to_speech"),
     "deepgram": ("aura-2-thalia-en", "text_to_speech"),
@@ -166,6 +167,33 @@ async def _test_openai_compatible_connection(base_url: str, api_key: Optional[st
         return False, "Connection timed out. Check if server is accessible."
     except Exception as e:
         return False, f"Connection error: {str(e)[:100]}"
+
+
+async def _test_sensenova_connection(api_key: Optional[str] = None) -> Tuple[bool, str]:
+    test_api_key = api_key or os.environ.get("SENSENOVA_API_KEY")
+    if not test_api_key:
+        return False, "No SenseNova API key configured"
+
+    url = "https://api.sensenova.cn/compatible-mode/v2/models"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                url,
+                headers={"Authorization": f"Bearer {test_api_key}"},
+            )
+            if response.status_code == 200:
+                data = response.json()
+                models = data.get("data", [])
+                return True, f"Connected. HTTP 200, models listed: {len(models)}"
+            if response.status_code in {401, 403}:
+                return False, f"SenseNova auth failed. HTTP {response.status_code}: {response.text[:200]}"
+            return False, f"SenseNova returned HTTP {response.status_code}: {response.text[:200]}"
+    except httpx.ConnectError as error:
+        return False, f"SenseNova connect error. URL={url}. {str(error)[:100]}"
+    except httpx.TimeoutException:
+        return False, f"SenseNova connection timed out. URL={url}"
+    except Exception as error:
+        return False, f"SenseNova connection error. URL={url}. {type(error).__name__}: {str(error)[:100]}"
 
 # Default voices for TTS testing per provider
 # ElevenLabs and Mistral excluded: voices looked up dynamically via available_voices

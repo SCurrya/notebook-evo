@@ -29,7 +29,7 @@ export function TransformationsList({ transformations, isLoading, onPlayground }
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center rounded-[28px] border border-border/70 bg-background/70 py-16">
         <LoadingSpinner size="lg" />
       </div>
     )
@@ -54,10 +54,10 @@ export function TransformationsList({ transformations, isLoading, onPlayground }
   return (
     <>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold">{t('transformations.listTitle')}</h2>
-          <Button onClick={() => handleOpenEditor()}>
-            <Plus className="h-4 w-4 mr-2" />
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-lg font-semibold tracking-tight">{t('transformations.listTitle')}</h2>
+          <Button onClick={() => handleOpenEditor()} className="rounded-full">
+            <Plus className="mr-2 h-4 w-4" />
             {t('transformations.createNew')}
           </Button>
         </div>

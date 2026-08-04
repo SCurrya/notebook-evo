@@ -11,6 +11,7 @@ from surrealdb import RecordID
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.base import ObjectModel
 from open_notebook.exceptions import DatabaseOperationError, InvalidInputError
+from open_notebook.utils.logger import Operation, Result, get_logger
 
 
 class Notebook(ObjectModel):
@@ -32,9 +33,9 @@ class Notebook(ObjectModel):
             srcs = await repo_query(
                 f"""
                 select *{source_projection} from (
-                select in as source from reference where out=$id
-                fetch source
-            ) order by source.updated desc
+                    select out as source from reference where in=$id
+                    fetch source
+                ) order by source.updated desc
             """,
                 {"id": ensure_record_id(self.id)},
             )
@@ -54,7 +55,7 @@ class Notebook(ObjectModel):
             srcs = await repo_query(
                 f"""
             select *{note_projection} from (
-                select in as note from artifact where out=$id
+                select out as note from artifact where in=$id
                 fetch note
             ) order by note.updated desc
             """,
@@ -151,6 +152,35 @@ class Notebook(ObjectModel):
             logger.exception(e)
             raise DatabaseOperationError(e)
 
+    async def _get_related_source_ids(self) -> List[str]:
+        source_ids = await repo_query(
+            "SELECT VALUE out FROM reference WHERE in = $notebook_id",
+            {"notebook_id": ensure_record_id(self.id)},
+        )
+        return [str(source_id) for source_id in source_ids] if source_ids else []
+
+    async def _get_related_note_ids(self) -> List[str]:
+        note_ids = await repo_query(
+            "SELECT VALUE out FROM artifact WHERE in = $notebook_id",
+            {"notebook_id": ensure_record_id(self.id)},
+        )
+        return [str(note_id) for note_id in note_ids] if note_ids else []
+
+    async def _count_other_notebooks_for_source(self, source_id: str) -> int:
+        other_notebooks = await repo_query(
+            """
+            SELECT count() as count
+            FROM reference
+            WHERE out = $source_id AND in != $notebook_id
+            GROUP ALL
+            """,
+            {
+                "source_id": ensure_record_id(source_id),
+                "notebook_id": ensure_record_id(self.id),
+            },
+        )
+        return other_notebooks[0]["count"] if other_notebooks else 0
+
     async def get_delete_preview(self) -> Dict[str, Any]:
         """
         Get counts of items that would be affected by deleting this notebook.
@@ -165,28 +195,18 @@ class Notebook(ObjectModel):
 
             # Count notes
             note_result = await repo_query(
-                "SELECT count() as count FROM artifact WHERE out = $notebook_id GROUP ALL",
+                "SELECT count() as count FROM artifact WHERE in = $notebook_id GROUP ALL",
                 {"notebook_id": notebook_id},
             )
             note_count = note_result[0]["count"] if note_result else 0
 
-            # Get sources with count of references to OTHER notebooks
-            # If assigned_others = 0, source is exclusive to this notebook
-            # If assigned_others > 0, source is shared with other notebooks
-            source_counts = await repo_query(
-                """
-                SELECT
-                    id,
-                    count(->reference[WHERE out != $notebook_id].out) as assigned_others
-                FROM (SELECT VALUE <-reference.in AS sources FROM $notebook_id)[0]
-                """,
-                {"notebook_id": notebook_id},
-            )
-
             exclusive_count = 0
             shared_count = 0
-            for src in source_counts:
-                if src.get("assigned_others", 0) == 0:
+            source_ids = await self._get_related_source_ids()
+
+            for source_id in source_ids:
+                other_count = await self._count_other_notebooks_for_source(source_id)
+                if other_count == 0:
                     exclusive_count += 1
                 else:
                     shared_count += 1
@@ -221,6 +241,10 @@ class Notebook(ObjectModel):
             deleted_sources = 0
             unlinked_sources = 0
 
+            get_logger("notebook_domain", Operation.DELETE, f"notebook_id={self.id}").info(
+                "Starting cascade deletion"
+            )
+
             # 1. Get and delete all notes linked to this notebook
             notes = await self.get_notes()
             for note in notes:
@@ -230,27 +254,16 @@ class Notebook(ObjectModel):
 
             # Delete artifact relationships
             await repo_query(
-                "DELETE artifact WHERE out = $notebook_id",
+                "DELETE artifact WHERE in = $notebook_id",
                 {"notebook_id": notebook_id},
             )
 
             # 2. Handle sources
+            source_ids = await self._get_related_source_ids()
             if delete_exclusive_sources:
-                # Find sources with count of references to OTHER notebooks
-                # If assigned_others = 0, source is exclusive to this notebook
-                source_counts = await repo_query(
-                    """
-                    SELECT
-                        id,
-                        count(->reference[WHERE out != $notebook_id].out) as assigned_others
-                    FROM (SELECT VALUE <-reference.in AS sources FROM $notebook_id)[0]
-                    """,
-                    {"notebook_id": notebook_id},
-                )
-
-                for src in source_counts:
-                    source_id = src.get("id")
-                    if source_id and src.get("assigned_others", 0) == 0:
+                for source_id in source_ids:
+                    other_count = await self._count_other_notebooks_for_source(source_id)
+                    if other_count == 0:
                         # Exclusive source - delete it
                         try:
                             source = await Source.get(str(source_id))
@@ -264,15 +277,11 @@ class Notebook(ObjectModel):
                         unlinked_sources += 1
             else:
                 # Just count sources that will be unlinked
-                source_result = await repo_query(
-                    "SELECT count() as count FROM reference WHERE out = $notebook_id GROUP ALL",
-                    {"notebook_id": notebook_id},
-                )
-                unlinked_sources = source_result[0]["count"] if source_result else 0
+                unlinked_sources = len(source_ids)
 
             # Delete reference relationships (unlink all sources)
             await repo_query(
-                "DELETE reference WHERE out = $notebook_id",
+                "DELETE reference WHERE in = $notebook_id",
                 {"notebook_id": notebook_id},
             )
             logger.info(
@@ -282,7 +291,12 @@ class Notebook(ObjectModel):
 
             # 3. Delete the notebook record itself
             await super().delete()
-            logger.info(f"Deleted notebook {self.id}")
+            get_logger(
+                "notebook_domain", Operation.DELETE,
+                f"notebook_id={self.id}", Result.SUCCESS
+            ).info(
+                f"Cascade deletion complete: notes={deleted_notes} sources={deleted_sources} unlinked={unlinked_sources}"
+            )
 
             return {
                 "deleted_notes": deleted_notes,
@@ -293,6 +307,10 @@ class Notebook(ObjectModel):
         except Exception as e:
             logger.error(f"Error deleting notebook {self.id}: {e}")
             logger.exception(e)
+            get_logger(
+                "notebook_domain", Operation.DELETE,
+                f"notebook_id={self.id}", Result.FAILURE
+            ).error(f"Cascade deletion failed: {e}")
             raise DatabaseOperationError(f"Failed to delete notebook: {e}")
 
 
@@ -355,6 +373,7 @@ class Source(ObjectModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     table_name: ClassVar[str] = "source"
+    nullable_fields: ClassVar[set[str]] = {"command", "embedding_command"}
     asset: Optional[Asset] = None
     title: Optional[str] = None
     topics: Optional[List[str]] = Field(default_factory=list)
@@ -362,8 +381,11 @@ class Source(ObjectModel):
     command: Optional[Union[str, RecordID]] = Field(
         default=None, description="Link to surreal-commands processing job"
     )
+    embedding_command: Optional[Union[str, RecordID]] = Field(
+        default=None, description="Link to the source embedding job"
+    )
 
-    @field_validator("command", mode="before")
+    @field_validator("command", "embedding_command", mode="before")
     @classmethod
     def parse_command(cls, value):
         """Parse command field to ensure RecordID format"""
@@ -383,27 +405,38 @@ class Source(ObjectModel):
 
     async def get_status(self) -> Optional[str]:
         """Get the processing status of the associated command"""
-        if not self.command:
+        tracked_command = self.embedding_command or self.command
+        if not tracked_command:
             return None
 
         try:
             from surreal_commands import get_command_status
 
-            status = await get_command_status(str(self.command))
-            return status.status if status else "unknown"
+            status = await get_command_status(str(tracked_command))
+            if not status:
+                return "unknown"
+            result = getattr(status, "result", None)
+            if (
+                status.status == "completed"
+                and isinstance(result, dict)
+                and result.get("success") is False
+            ):
+                return "failed"
+            return status.status
         except Exception as e:
-            logger.warning(f"Failed to get command status for {self.command}: {e}")
+            logger.warning(f"Failed to get command status for {tracked_command}: {e}")
             return "unknown"
 
     async def get_processing_progress(self) -> Optional[Dict[str, Any]]:
         """Get detailed processing information for the associated command"""
-        if not self.command:
+        tracked_command = self.embedding_command or self.command
+        if not tracked_command:
             return None
 
         try:
             from surreal_commands import get_command_status
 
-            status_result = await get_command_status(str(self.command))
+            status_result = await get_command_status(str(tracked_command))
             if not status_result:
                 return None
 
@@ -412,16 +445,27 @@ class Source(ObjectModel):
             execution_metadata = (
                 result.get("execution_metadata", {}) if isinstance(result, dict) else {}
             )
+            result_error = (
+                result.get("error_message") if isinstance(result, dict) else None
+            )
+            normalized_status = status_result.status
+            if (
+                normalized_status == "completed"
+                and isinstance(result, dict)
+                and result.get("success") is False
+            ):
+                normalized_status = "failed"
 
             return {
-                "status": status_result.status,
+                "status": normalized_status,
+                "phase": "embedding" if self.embedding_command else "processing",
                 "started_at": execution_metadata.get("started_at"),
                 "completed_at": execution_metadata.get("completed_at"),
-                "error": getattr(status_result, "error_message", None),
+                "error": getattr(status_result, "error_message", None) or result_error,
                 "result": result,
             }
         except Exception as e:
-            logger.warning(f"Failed to get command progress for {self.command}: {e}")
+            logger.warning(f"Failed to get command progress for {tracked_command}: {e}")
             return None
 
     async def get_context(
@@ -493,6 +537,9 @@ class Source(ObjectModel):
             DatabaseOperationError: If job submission fails
         """
         logger.info(f"Submitting embed_source job for source {self.id}")
+        get_logger("source_domain", Operation.TRANSFORM, f"source_id={self.id}").info(
+            "Submitting vectorization job"
+        )
 
         try:
             if not self.full_text or not self.full_text.strip():
@@ -506,10 +553,16 @@ class Source(ObjectModel):
             )
 
             command_id_str = str(command_id)
+            self.embedding_command = ensure_record_id(command_id_str)
+            await self.save()
             logger.info(
                 f"Embed source job submitted for source {self.id}: "
                 f"command_id={command_id_str}"
             )
+            get_logger(
+                "source_domain", Operation.TRANSFORM,
+                f"source_id={self.id} command_id={command_id_str}", Result.SUCCESS
+            ).info("Vectorization job submitted")
 
             return command_id_str
 
@@ -520,6 +573,10 @@ class Source(ObjectModel):
                 f"Failed to submit embed_source job for source {self.id}: {e}"
             )
             logger.exception(e)
+            get_logger(
+                "source_domain", Operation.TRANSFORM,
+                f"source_id={self.id}", Result.FAILURE
+            ).error(f"Vectorization job submission failed: {e}")
             raise DatabaseOperationError(e)
 
     async def add_insight(self, insight_type: str, content: str) -> Optional[str]:
@@ -576,11 +633,16 @@ class Source(ObjectModel):
         # Ensure command field is RecordID format if not None
         if data.get("command") is not None:
             data["command"] = ensure_record_id(data["command"])
+        if data.get("embedding_command") is not None:
+            data["embedding_command"] = ensure_record_id(data["embedding_command"])
 
         return data
 
     async def delete(self) -> bool:
         """Delete source and clean up associated file, embeddings, and insights."""
+        get_logger("source_domain", Operation.DELETE, f"source_id={self.id}").info(
+            "Starting source deletion"
+        )
         # Clean up uploaded file if it exists
         if self.asset and self.asset.file_path:
             file_path = Path(self.asset.file_path)
@@ -617,7 +679,12 @@ class Source(ObjectModel):
             )
 
         # Call parent delete to remove database record
-        return await super().delete()
+        result = await super().delete()
+        get_logger(
+            "source_domain", Operation.DELETE,
+            f"source_id={self.id}", Result.SUCCESS
+        ).info("Source deletion complete")
+        return result
 
 
 class Note(ObjectModel):

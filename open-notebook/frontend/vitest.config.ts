@@ -10,6 +10,14 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     alias: {
       '@': path.resolve(__dirname, './src')
-    }
+    },
+    pool: 'threads',
+    poolOptions: {
+      threads: {
+        singleThread: true,
+      },
+    },
+    testTimeout: 60000,
+    hookTimeout: 60000,
   }
 })

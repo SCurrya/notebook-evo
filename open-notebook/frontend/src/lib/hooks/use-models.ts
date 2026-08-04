@@ -157,6 +157,49 @@ export function useAutoAssignDefaults() {
   })
 }
 
+export function useSyncAllModels() {
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+  const { t } = useTranslation()
+
+  return useMutation({
+    mutationFn: () => modelsApi.syncAllAndAssign(),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: MODEL_QUERY_KEYS.models })
+      queryClient.invalidateQueries({ queryKey: MODEL_QUERY_KEYS.defaults })
+      queryClient.invalidateQueries({ queryKey: MODEL_QUERY_KEYS.providers })
+      queryClient.invalidateQueries({ queryKey: ['credentials'] })
+
+      const discovered = result.syncResult.total_discovered
+      const created = result.syncResult.total_new
+      const assignedCount = Object.keys(result.assignResult.assigned).length
+
+      if (created > 0 || assignedCount > 0 || discovered > 0) {
+        toast({
+          title: t('common.success'),
+          description: t('apiKeys.syncAndAssignSuccess')
+            .replace('{discovered}', discovered.toString())
+            .replace('{new}', created.toString())
+            .replace('{assigned}', assignedCount.toString()),
+        })
+      } else {
+        toast({
+          title: t('common.warning'),
+          description: t('apiKeys.syncAndAssignNoModels'),
+          variant: 'destructive',
+        })
+      }
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: t('common.error'),
+        description: getApiErrorKey(error, t('apiKeys.syncAndAssignFailed')),
+        variant: 'destructive',
+      })
+    },
+  })
+}
+
 export function useTestModel() {
   const [testResult, setTestResult] = useState<ModelTestResult | null>(null)
   const [testedModelName, setTestedModelName] = useState('')

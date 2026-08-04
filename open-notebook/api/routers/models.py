@@ -15,6 +15,7 @@ from api.models import (
 )
 from open_notebook.ai.connection_tester import test_individual_model
 from open_notebook.ai.key_provider import provision_provider_keys
+from open_notebook.ai.model_assignment import auto_assign_default_models
 from open_notebook.ai.model_discovery import (
     discover_provider_models,
     get_provider_model_count,
@@ -85,6 +86,8 @@ class ModelTestResponse(BaseModel):
 
 # Provider priority for auto-assignment (higher priority first)
 PROVIDER_PRIORITY = [
+    "sensenova",
+    "openrouter",
     "openai",
     "anthropic",
     "google",
@@ -92,7 +95,9 @@ PROVIDER_PRIORITY = [
     "groq",
     "deepseek",
     "xai",
-    "openrouter",
+    "voyage",
+    "elevenlabs",
+    "deepgram",
     "ollama",
     "azure",
     "openai_compatible",
@@ -102,11 +107,24 @@ PROVIDER_PRIORITY = [
 
 # Model preference patterns (preferred models within each provider)
 MODEL_PREFERENCES = {
+    "sensenova": ["deepseek-v4-flash", "sensenova-6.7-flash-lite", "sensenova-embedding"],
     "openai": ["gpt-4o", "gpt-4", "gpt-3.5-turbo"],
     "anthropic": ["claude-3-5-sonnet", "claude-3-opus", "claude-3-sonnet"],
     "google": ["gemini-2.0", "gemini-1.5-pro", "gemini-pro"],
     "mistral": ["mistral-large", "mixtral"],
     "groq": ["llama-3.3", "llama-3.1", "mixtral"],
+    "openrouter": ["deepseek", "qwen", "gemma", "llama", "gpt-4o", "claude"],
+    "openai_compatible": [
+        "ds-v4-flash",
+        "deepseek-v4-flash",
+        "deepseek-chat",
+        "gpt-4o",
+        "qwen",
+        "gemini",
+    ],
+    "voyage": ["voyage-3", "voyage-3-lite", "voyage-code-3"],
+    "elevenlabs": ["eleven_multilingual_v2", "eleven_turbo_v2_5", "scribe_v1"],
+    "deepgram": ["aura-2", "aura"],
     "dashscope": ["qwen-max", "qwen-plus", "qwen-turbo"],
     "minimax": ["MiniMax-M2.5", "MiniMax-M2.5-highspeed"],
 }
@@ -379,6 +397,7 @@ async def get_provider_availability():
             "deepseek": "DEEPSEEK_API_KEY",
             "xai": "XAI_API_KEY",
             "openrouter": "OPENROUTER_API_KEY",
+            "sensenova": "SENSENOVA_API_KEY",
             "voyage": "VOYAGE_API_KEY",
             "elevenlabs": "ELEVENLABS_API_KEY",
             "deepgram": "DEEPGRAM_API_KEY",
@@ -433,6 +452,10 @@ async def get_provider_availability():
         supported_types: dict[str, list[str]] = {}
         for provider in available_providers:
             supported_types[provider] = []
+
+            if provider == "sensenova":
+                supported_types[provider] = ["language", "embedding"]
+                continue
 
             # Map Esperanto model types to our environment variable modes
             mode_mapping = {
@@ -701,77 +724,8 @@ async def auto_assign_defaults():
         - missing: List of slots with no available models
     """
     try:
-        from open_notebook.database.repository import repo_query
-
-        # Get current defaults
-        defaults = await DefaultModels.get_instance()
-
-        # Get all models grouped by type
-        all_models = await repo_query(
-            "SELECT * FROM model ORDER BY provider, name",
-            {},
-        )
-
-        # Group models by type
-        models_by_type: Dict[str, List[Dict]] = {
-            "language": [],
-            "embedding": [],
-            "text_to_speech": [],
-            "speech_to_text": [],
-        }
-
-        for model in all_models:
-            model_type = model.get("type", "")
-            if model_type in models_by_type:
-                models_by_type[model_type].append(model)
-
-        # Define slot configuration: (slot_name, model_type, current_value)
-        slot_configs = [
-            ("default_chat_model", "language", defaults.default_chat_model),  # type: ignore[attr-defined]
-            ("default_transformation_model", "language", defaults.default_transformation_model),  # type: ignore[attr-defined]
-            ("default_tools_model", "language", defaults.default_tools_model),  # type: ignore[attr-defined]
-            ("large_context_model", "language", defaults.large_context_model),  # type: ignore[attr-defined]
-            ("default_embedding_model", "embedding", defaults.default_embedding_model),  # type: ignore[attr-defined]
-            ("default_text_to_speech_model", "text_to_speech", defaults.default_text_to_speech_model),  # type: ignore[attr-defined]
-            ("default_speech_to_text_model", "speech_to_text", defaults.default_speech_to_text_model),  # type: ignore[attr-defined]
-        ]
-
-        assigned: Dict[str, str] = {}
-        skipped: List[str] = []
-        missing: List[str] = []
-
-        for slot_name, model_type, current_value in slot_configs:
-            if current_value:
-                # Slot already has a value
-                skipped.append(slot_name)
-                continue
-
-            available_models = models_by_type.get(model_type, [])
-            if not available_models:
-                # No models of this type available
-                missing.append(slot_name)
-                continue
-
-            # Select best model for this slot
-            best_model = _get_preferred_model(
-                available_models, PROVIDER_PRIORITY, MODEL_PREFERENCES
-            )
-
-            if best_model:
-                model_id = best_model.get("id", "")
-                assigned[slot_name] = model_id
-                # Update the defaults object
-                setattr(defaults, slot_name, model_id)
-
-        # Save updated defaults if any assignments were made
-        if assigned:
-            await defaults.update()
-
-        return AutoAssignResult(
-            assigned=assigned,
-            skipped=skipped,
-            missing=missing,
-        )
+        result = await auto_assign_default_models()
+        return AutoAssignResult(**result)
 
     except Exception as e:
         logger.error(f"Error auto-assigning defaults: {str(e)}")

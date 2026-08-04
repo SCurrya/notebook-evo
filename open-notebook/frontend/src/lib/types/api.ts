@@ -52,6 +52,30 @@ export interface SourceStatusResponse {
   command_id?: string
 }
 
+export interface PreprocessedChunk {
+  content: string
+  title?: string | null
+  subtitle?: string | null
+  page_number?: number | null
+  source_file?: string | null
+  section?: string | null
+  chunk_index: number
+}
+
+export interface PreprocessPreviewResponse {
+  source_id: string
+  source_file?: string | null
+  original_text: string
+  cleaned_text: string
+  chunks: PreprocessedChunk[]
+  stats: {
+    original_chars: number
+    cleaned_chars: number
+    chunk_count: number
+    removed_line_count: number
+  }
+}
+
 export interface SettingsResponse {
   default_content_processing_engine_doc?: string
   default_content_processing_engine_url?: string

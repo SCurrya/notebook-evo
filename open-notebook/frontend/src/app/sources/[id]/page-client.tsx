@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, usePathname, useSearchParams } from 'next/navigation'
 import { useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
@@ -9,10 +9,33 @@ import { ChatPanel } from '@/components/source/ChatPanel'
 import { useNavigation } from '@/lib/hooks/use-navigation'
 import { SourceDetailContent } from '@/components/source/SourceDetailContent'
 
-export default function PageClient() {
+interface PageClientProps {
+  sourceId?: string
+}
+
+function decodeRouteId(value: string | string[] | undefined): string {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (!raw || raw === '_placeholder') return ''
+  return decodeURIComponent(raw)
+}
+
+function getSourceIdFromPath(pathname: string | null): string {
+  const marker = '/sources/'
+  if (!pathname?.startsWith(marker)) return ''
+  const raw = pathname.slice(marker.length).split('/')[0]
+  return decodeRouteId(raw)
+}
+
+export default function PageClient({ sourceId: sourceIdProp }: PageClientProps) {
   const router = useRouter()
   const params = useParams()
-  const sourceId = params?.id ? decodeURIComponent(params.id as string) : ''
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const sourceId =
+    decodeRouteId(searchParams.get('sourceId') || undefined) ||
+    getSourceIdFromPath(pathname) ||
+    decodeRouteId(params?.id as string | string[] | undefined) ||
+    decodeRouteId(sourceIdProp)
   const navigation = useNavigation()
 
   // Initialize source chat

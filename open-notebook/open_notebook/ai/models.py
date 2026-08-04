@@ -9,6 +9,7 @@ from esperanto import (
 )
 from loguru import logger
 
+from open_notebook.ai.http_embedding import HttpEmbeddingModel
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.base import ObjectModel, RecordModel
 from open_notebook.exceptions import ConfigurationError
@@ -99,15 +100,21 @@ class ModelManager:
     def __init__(self):
         pass  # No caching needed
 
+    async def get_model_record(self, model_id: str) -> Model:
+        if not model_id:
+            raise ConfigurationError("Model ID is required")
+
+        try:
+            return await Model.get(model_id)
+        except Exception:
+            raise ConfigurationError(f"Model with ID {model_id} not found")
+
     async def get_model(self, model_id: str, **kwargs) -> Optional[ModelType]:
         """Get a model by ID. Esperanto will cache the actual model instance."""
         if not model_id:
             return None
 
-        try:
-            model: Model = await Model.get(model_id)
-        except Exception:
-            raise ConfigurationError(f"Model with ID {model_id} not found")
+        model = await self.get_model_record(model_id)
 
         if not model.type or model.type not in [
             "language",
@@ -145,7 +152,39 @@ class ModelManager:
         config.update(kwargs)
 
         # Normalize provider name: DB stores underscores but Esperanto expects hyphens
-        provider = model.provider.replace("_", "-")
+        provider_name = model.provider.lower()
+        provider = provider_name.replace("_", "-")
+
+        if provider_name == "sensenova":
+            if model.type == "language":
+                provider = "openai-compatible"
+                config.setdefault(
+                    "base_url", "https://api.sensenova.cn/compatible-mode/v2"
+                )
+            elif model.type == "embedding":
+                config.setdefault(
+                    "endpoint_embedding", "https://api.sensenova.cn/v1/llm/embeddings"
+                )
+                return HttpEmbeddingModel(
+                    model_name=model.name,
+                    provider_name="sensenova",
+                    api_key=config.get("api_key"),
+                    base_url=config.get("base_url"),
+                    config=config,
+                )
+
+        if provider_name == "openrouter" and model.type == "embedding":
+            config.setdefault("base_url", "https://openrouter.ai/api/v1")
+            config.setdefault(
+                "endpoint_embedding", "https://openrouter.ai/api/v1/embeddings"
+            )
+            return HttpEmbeddingModel(
+                model_name=model.name,
+                provider_name="openrouter",
+                api_key=config.get("api_key"),
+                base_url=config.get("base_url"),
+                config=config,
+            )
 
         # Create model based on type (Esperanto will cache the instance)
         if model.type == "language":
@@ -174,6 +213,49 @@ class ModelManager:
             )
         else:
             raise ConfigurationError(f"Invalid model type: {model.type}")
+
+    async def get_fallback_model_ids(
+        self,
+        model_type: str,
+        primary_model_id: Optional[str] = None,
+    ) -> list[str]:
+        """Return fallback model IDs ordered by the SenseNova -> OpenRouter policy."""
+        if model_type in {"chat", "tools", "large_context", "transformation"}:
+            type_filter = "language"
+            preferences = [
+                "deepseek/deepseek-v4-flash",
+            ]
+        elif model_type == "embedding":
+            type_filter = "embedding"
+            preferences = [
+                "qwen/qwen3-embedding-4b",
+                "nvidia/llama-nemotron-embed-vl-1b-v2:free",
+                "perplexity/pplx-embed-v1-0.6b",
+                "thenlper/gte-base",
+            ]
+        else:
+            return []
+
+        rows = await repo_query(
+            """
+            SELECT * FROM model
+            WHERE string::lowercase(provider) = 'openrouter'
+              AND string::lowercase(type) = $type
+            """,
+            {"type": type_filter},
+        )
+        if not rows:
+            return []
+
+        candidates = [Model(**row) for row in rows if str(row.get("id")) != primary_model_id]
+        ordered: list[Model] = []
+        for preference in preferences:
+            for model in candidates:
+                if model in ordered:
+                    continue
+                if preference.lower() == model.name.lower():
+                    ordered.append(model)
+        return [model.id for model in ordered if model.id]
 
     async def get_defaults(self) -> DefaultModels:
         """Get the default models configuration from database"""

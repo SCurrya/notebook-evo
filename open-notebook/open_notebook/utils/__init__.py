@@ -26,6 +26,13 @@ from .encryption import (
     decrypt_value,
     encrypt_value,
 )
+from .logger import (
+    Operation,
+    Result,
+    configure_logging,
+    get_logger,
+    log_operation,
+)
 from .text_utils import (
     clean_thinking_content,
     parse_thinking_content,
@@ -66,4 +73,10 @@ __all__ = [
     # Encryption utils
     "decrypt_value",
     "encrypt_value",
+    # Logger
+    "Operation",
+    "Result",
+    "configure_logging",
+    "get_logger",
+    "log_operation",
 ]

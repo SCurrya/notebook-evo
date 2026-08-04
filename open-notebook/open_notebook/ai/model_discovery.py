@@ -40,6 +40,11 @@ OPENAI_MODEL_TYPES = {
         "o1",
         "o3",
         "chatgpt",
+        "deepseek-v4-flash",
+        "deepseek-v4-pro",
+        "ds-v4-flash",
+        "deepseek-chat",
+        "deepseek-reasoner",
         "text-davinci",
         "davinci",
         "curie",
@@ -47,8 +52,19 @@ OPENAI_MODEL_TYPES = {
         "ada",
     ],
     "embedding": ["text-embedding", "embedding"],
-    "speech_to_text": ["whisper"],
+    "speech_to_text": ["whisper", "transcribe", "transcription", "asr"],
     "text_to_speech": ["tts"],
+}
+
+SENSENOVA_MODEL_TYPES = {
+    "language": [
+        "deepseek-v4-flash",
+        "ds-v4-flash",
+        "sensenova-6.7-flash-lite",
+        "sensenova",
+        "deepseek",
+    ],
+    "embedding": ["embedding", "embed"],
 }
 
 ANTHROPIC_MODELS = {
@@ -125,7 +141,14 @@ GROQ_MODEL_TYPES = {
 }
 
 DEEPSEEK_MODEL_TYPES = {
-    "language": ["deepseek-chat", "deepseek-reasoner", "deepseek-coder"],
+    "language": [
+        "deepseek-v4-flash",
+        "deepseek-v4-pro",
+        "deepseek-v3.2",
+        "deepseek-chat",
+        "deepseek-reasoner",
+        "deepseek-coder",
+    ],
 }
 
 XAI_MODEL_TYPES = {
@@ -164,6 +187,9 @@ def classify_model_type(model_name: str, provider: str) -> str:
 
     type_mappings = {
         "openai": OPENAI_MODEL_TYPES,
+        "openrouter": OPENAI_MODEL_TYPES,
+        "openai_compatible": OPENAI_MODEL_TYPES,
+        "sensenova": SENSENOVA_MODEL_TYPES,
         "google": GOOGLE_MODEL_TYPES,
         "ollama": OLLAMA_MODEL_TYPES,
         "mistral": MISTRAL_MODEL_TYPES,
@@ -188,6 +214,11 @@ def classify_model_type(model_name: str, provider: str) -> str:
 
     # Default to language for unknown models
     return "language"
+
+
+def _contains_any(text: str, patterns: Tuple[str, ...]) -> bool:
+    """Return True if any pattern appears in the supplied text."""
+    return any(pattern in text for pattern in patterns)
 
 
 # =============================================================================
@@ -475,7 +506,7 @@ async def discover_openrouter_models() -> List[DiscoveredModel]:
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                "https://openrouter.ai/api/v1/models",
+                "https://openrouter.ai/api/v1/models?output_modalities=all",
                 headers={"Authorization": f"Bearer {api_key}"},
                 timeout=30.0,
             )
@@ -485,19 +516,131 @@ async def discover_openrouter_models() -> List[DiscoveredModel]:
             for model in data.get("data", []):
                 model_id = model.get("id", "")
                 if model_id:
-                    # OpenRouter models are typically language models
+                    architecture = model.get("architecture", {}) or {}
+                    output_modalities = (
+                        model.get("output_modalities")
+                        or architecture.get("output_modalities")
+                        or []
+                    )
+                    input_modalities = (
+                        model.get("input_modalities")
+                        or architecture.get("input_modalities")
+                        or []
+                    )
+                    modality = str(
+                        model.get("modality")
+                        or architecture.get("modality")
+                        or ""
+                    ).lower()
+                    model_name = str(model.get("name") or "")
+                    model_type = "language"
+                    name_text = f"{model_id.lower()} {model_name.lower()}"
+                    modality_text = " ".join(
+                        [modality, " ".join(output_modalities), " ".join(input_modalities)]
+                    ).lower()
+                    output_modality_text = " ".join(output_modalities).lower()
+                    input_modality_text = " ".join(input_modalities).lower()
+                    if (
+                        "embedding" in modality_text
+                        or "embeddings" in output_modality_text
+                        or "embedding" in name_text
+                    ):
+                        model_type = "embedding"
+                    elif (
+                        _contains_any(
+                            name_text,
+                            ("whisper", "transcribe", "transcription", "asr"),
+                        )
+                        or "transcription" in modality_text
+                        or "transcribe" in modality_text
+                        or "asr" in modality_text
+                        or "speech" in input_modality_text
+                        or "audio" in input_modality_text
+                    ):
+                        model_type = "speech_to_text"
+                    elif (
+                        "tts" in name_text
+                        or "speech" in output_modality_text
+                        or "audio" in output_modality_text
+                        or "voice" in modality_text
+                    ):
+                        model_type = "text_to_speech"
                     models.append(
                         DiscoveredModel(
                             name=model_id,
                             provider="openrouter",
-                            model_type="language",
-                            description=model.get("name"),
+                            model_type=model_type,
+                            description=model_name or model.get("description"),
                         )
                     )
+            try:
+                embedding_response = await client.get(
+                    "https://openrouter.ai/api/v1/embeddings/models",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    timeout=30.0,
+                )
+                embedding_response.raise_for_status()
+                embedding_data = embedding_response.json()
+                known = {model.name for model in models}
+                for model in embedding_data.get("data", []):
+                    model_id = model.get("id", "")
+                    if model_id and model_id not in known:
+                        known.add(model_id)
+                        models.append(
+                            DiscoveredModel(
+                                name=model_id,
+                                provider="openrouter",
+                                model_type="embedding",
+                                description=model.get("name") or model.get("description"),
+                            )
+                        )
+            except Exception as embed_error:
+                logger.warning(
+                    "Failed to discover OpenRouter embedding models: {}",
+                    type(embed_error).__name__,
+                )
     except Exception as e:
         logger.warning(f"Failed to discover OpenRouter models: {e}")
 
     return models
+
+
+async def discover_sensenova_models() -> List[DiscoveredModel]:
+    """Fetch available models from SenseNova or return curated defaults."""
+    api_key = os.environ.get("SENSENOVA_API_KEY")
+    curated = [
+        DiscoveredModel("deepseek-v4-flash", "sensenova", "language"),
+        DiscoveredModel("sensenova-6.7-flash-lite", "sensenova", "language"),
+        DiscoveredModel("sensenova-embedding", "sensenova", "embedding"),
+    ]
+    if not api_key:
+        return curated
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://api.sensenova.cn/compatible-mode/v2/models",
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=30.0,
+            )
+            response.raise_for_status()
+            data = response.json()
+            discovered: List[DiscoveredModel] = []
+            for model in data.get("data", []):
+                model_id = model.get("id", "")
+                if model_id:
+                    discovered.append(
+                        DiscoveredModel(
+                            name=model_id,
+                            provider="sensenova",
+                            model_type=classify_model_type(model_id, "sensenova"),
+                            description=model.get("name") or model.get("description"),
+                        )
+                    )
+            return discovered or curated
+    except Exception as error:
+        logger.warning("Failed to discover SenseNova models: {}", type(error).__name__)
+        return curated
 
 
 async def discover_voyage_models() -> List[DiscoveredModel]:
@@ -725,6 +868,7 @@ PROVIDER_DISCOVERY_FUNCTIONS = {
     "mistral": discover_mistral_models,
     "deepseek": discover_deepseek_models,
     "xai": discover_xai_models,
+    "sensenova": discover_sensenova_models,
     "openrouter": discover_openrouter_models,
     "voyage": discover_voyage_models,
     "elevenlabs": discover_elevenlabs_models,
@@ -788,24 +932,50 @@ async def sync_provider_models(
     # Batch fetch existing models to avoid N+1 query pattern
     try:
         existing_models = await repo_query(
-            "SELECT string::lowercase(name) as name, string::lowercase(type) as type FROM model "
+            "SELECT * FROM model "
             "WHERE string::lowercase(provider) = $provider",
             {"provider": provider.lower()},
         )
-        # Create a set of (name, type) tuples for O(1) lookup
-        existing_keys = set()
+        # Create a name index so we can correct historical misclassifications
+        # in-place when the discovery logic improves.
+        existing_by_name: Dict[str, Dict[str, str]] = {}
         for m in existing_models:
-            existing_keys.add((m.get("name", ""), m.get("type", "")))
+            name = str(m.get("name", "")).lower()
+            if name and name not in existing_by_name:
+                existing_by_name[name] = m
     except Exception as e:
         logger.warning(f"Failed to fetch existing models for {provider}: {e}")
-        existing_keys = set()
+        existing_by_name = {}
 
     for model in discovered:
-        model_key = (model.name.lower(), model.model_type.lower())
+        model_name = model.name.lower()
+        model_type = model.model_type.lower()
+        existing_model = existing_by_name.get(model_name)
 
-        # Check if model already exists using pre-fetched data
-        if model_key in existing_keys:
+        # Check if model already exists using pre-fetched data.
+        # If the model exists under a different type, update it in place.
+        if existing_model:
             existing_count += 1
+            existing_type = str(existing_model.get("type", "")).lower()
+            if existing_type and existing_type != model_type:
+                try:
+                    corrected = Model(**existing_model)
+                    corrected.type = model.model_type
+                    await corrected.save()
+                    logger.info(
+                        "Reclassified existing model: {} / {} ({} -> {})",
+                        provider,
+                        model.name,
+                        existing_type,
+                        model_type,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Failed to reclassify existing model {} as {}: {}",
+                        model.name,
+                        model.model_type,
+                        e,
+                    )
             continue
 
         # Create new model

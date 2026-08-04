@@ -17,15 +17,24 @@ export const useThemeStore = create<ThemeState>()(
       
       setTheme: (theme: Theme) => {
         set({ theme })
-        
-        // Apply theme to document immediately
+
+        // 立即将主题应用到 document，保持与 ThemeProvider 的过渡动画一致
         if (typeof window !== 'undefined') {
           const root = window.document.documentElement
           const effectiveTheme = theme === 'system' ? get().getSystemTheme() : theme
-          
+
+          // 启用过渡动画类
+          root.classList.add('theme-transition')
+
           root.classList.remove('light', 'dark')
           root.classList.add(effectiveTheme)
           root.setAttribute('data-theme', effectiveTheme)
+          root.style.colorScheme = effectiveTheme
+
+          // 过渡完成后移除过渡类
+          window.setTimeout(() => {
+            root.classList.remove('theme-transition')
+          }, 400)
         }
       },
       

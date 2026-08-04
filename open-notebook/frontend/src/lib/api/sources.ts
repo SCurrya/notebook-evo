@@ -6,6 +6,7 @@ import {
   SourceDetailResponse, 
   SourceResponse,
   SourceStatusResponse,
+  PreprocessPreviewResponse,
   CreateSourceRequest, 
   UpdateSourceRequest 
 } from '@/lib/types/api'
@@ -77,6 +78,11 @@ export const sourcesApi = {
 
   status: async (id: string) => {
     const response = await apiClient.get<SourceStatusResponse>(`/sources/${id}/status`)
+    return response.data
+  },
+
+  preprocessPreview: async (id: string) => {
+    const response = await apiClient.get<PreprocessPreviewResponse>(`/sources/${id}/preprocess-preview`)
     return response.data
   },
 

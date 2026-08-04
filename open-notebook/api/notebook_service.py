@@ -8,6 +8,7 @@ from loguru import logger
 
 from api.client import api_client
 from open_notebook.domain.notebook import Notebook
+from open_notebook.utils.logger import Operation, log_operation
 
 
 class NotebookService:
@@ -16,6 +17,7 @@ class NotebookService:
     def __init__(self):
         logger.info("Using API for notebook operations")
 
+    @log_operation("notebook_service", Operation.READ)
     def get_all_notebooks(self, order_by: str = "updated desc") -> List[Notebook]:
         """Get all notebooks."""
         notebooks_data = api_client.get_notebooks(order_by=order_by)
@@ -33,6 +35,7 @@ class NotebookService:
             notebooks.append(nb)
         return notebooks
 
+    @log_operation("notebook_service", Operation.READ)
     def get_notebook(self, notebook_id: str) -> Optional[Notebook]:
         """Get a specific notebook."""
         response = api_client.get_notebook(notebook_id)
@@ -47,6 +50,7 @@ class NotebookService:
         nb.updated = nb_data["updated"]
         return nb
 
+    @log_operation("notebook_service", Operation.CREATE)
     def create_notebook(self, name: str, description: str = "") -> Notebook:
         """Create a new notebook."""
         response = api_client.create_notebook(name, description)
@@ -61,6 +65,7 @@ class NotebookService:
         nb.updated = nb_data["updated"]
         return nb
 
+    @log_operation("notebook_service", Operation.UPDATE)
     def update_notebook(self, notebook: Notebook) -> Notebook:
         """Update a notebook."""
         updates = {
@@ -77,6 +82,7 @@ class NotebookService:
         notebook.updated = nb_data["updated"]
         return notebook
 
+    @log_operation("notebook_service", Operation.DELETE)
     def delete_notebook(self, notebook: Notebook) -> bool:
         """Delete a notebook."""
         api_client.delete_notebook(notebook.id or "")

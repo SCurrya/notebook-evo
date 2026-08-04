@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, usePathname, useSearchParams } from 'next/navigation'
 import { AppShell } from '@/components/layout/AppShell'
 import { NotebookHeader } from '@/app/(dashboard)/notebooks/components/NotebookHeader'
 import { SourcesColumn } from '@/app/(dashboard)/notebooks/components/SourcesColumn'
@@ -17,20 +17,38 @@ import { useTranslation } from '@/lib/hooks/use-translation'
 import { cn } from '@/lib/utils'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FileText, StickyNote, MessageSquare } from 'lucide-react'
+import type { ContextMode, ContextSelections } from '@/lib/types/notebook-context'
 
-export type ContextMode = 'off' | 'insights' | 'full'
-
-export interface ContextSelections {
-  sources: Record<string, ContextMode>
-  notes: Record<string, ContextMode>
+interface PageClientProps {
+  notebookId?: string
 }
 
-export default function PageClient() {
+function decodeRouteId(value: string | string[] | undefined): string {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (!raw || raw === '_placeholder') return ''
+  return decodeURIComponent(raw)
+}
+
+function getNotebookIdFromPath(pathname: string | null): string {
+  const marker = '/notebooks/'
+  if (!pathname?.startsWith(marker)) return ''
+  const raw = pathname.slice(marker.length).split('/')[0]
+  return decodeRouteId(raw)
+}
+
+export default function PageClient({ notebookId: notebookIdProp }: PageClientProps) {
   const { t } = useTranslation()
   const params = useParams()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
 
-  // Ensure the notebook ID is properly decoded from URL
-  const notebookId = params?.id ? decodeURIComponent(params.id as string) : ''
+  // Static desktop builds reuse a generated placeholder route, so the current
+  // browser URL or query string is the most reliable source for the real id.
+  const notebookId =
+    decodeRouteId(searchParams.get('notebookId') || undefined) ||
+    getNotebookIdFromPath(pathname) ||
+    decodeRouteId(params?.id as string | string[] | undefined) ||
+    decodeRouteId(notebookIdProp)
 
   const { data: notebook, isLoading: notebookLoading } = useNotebook(notebookId)
   const {

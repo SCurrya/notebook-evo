@@ -16,6 +16,7 @@ from open_notebook.ai.models import Model
 from open_notebook.domain.transformation import DefaultPrompts, Transformation
 from open_notebook.exceptions import InvalidInputError, OpenNotebookError
 from open_notebook.graphs.transformation import graph as transformation_graph
+from open_notebook.utils.logger import Operation, Result, get_logger
 
 router = APIRouter()
 
@@ -23,9 +24,12 @@ router = APIRouter()
 @router.get("/transformations", response_model=List[TransformationResponse])
 async def get_transformations():
     """Get all transformations."""
+    log = get_logger("transformations_api", Operation.READ)
+    log.debug("-> get_transformations()")
     try:
         transformations = await Transformation.get_all(order_by="name asc")
 
+        log.bind(result=Result.SUCCESS).info(f"<- get_transformations() count={len(transformations)}")
         return [
             TransformationResponse(
                 id=transformation.id or "",
@@ -41,6 +45,7 @@ async def get_transformations():
         ]
     except Exception as e:
         logger.error(f"Error fetching transformations: {str(e)}")
+        get_logger("transformations_api", Operation.READ, "-", Result.FAILURE).error(f"get_transformations() failed: {e}")
         raise HTTPException(
             status_code=500, detail=f"Error fetching transformations: {str(e)}"
         )
@@ -49,6 +54,8 @@ async def get_transformations():
 @router.post("/transformations", response_model=TransformationResponse)
 async def create_transformation(transformation_data: TransformationCreate):
     """Create a new transformation."""
+    log = get_logger("transformations_api", Operation.CREATE, f"name={transformation_data.name}")
+    log.debug("-> create_transformation()")
     try:
         new_transformation = Transformation(
             name=transformation_data.name,
@@ -59,6 +66,7 @@ async def create_transformation(transformation_data: TransformationCreate):
         )
         await new_transformation.save()
 
+        log.bind(result=Result.SUCCESS).info(f"<- create_transformation() id={new_transformation.id}")
         return TransformationResponse(
             id=new_transformation.id or "",
             name=new_transformation.name,
@@ -73,6 +81,7 @@ async def create_transformation(transformation_data: TransformationCreate):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating transformation: {str(e)}")
+        get_logger("transformations_api", Operation.CREATE, "-", Result.FAILURE).error(f"create_transformation() failed: {e}")
         raise HTTPException(
             status_code=500, detail=f"Error creating transformation: {str(e)}"
         )
@@ -81,6 +90,8 @@ async def create_transformation(transformation_data: TransformationCreate):
 @router.post("/transformations/execute", response_model=TransformationExecuteResponse)
 async def execute_transformation(execute_request: TransformationExecuteRequest):
     """Execute a transformation on input text."""
+    log = get_logger("transformations_api", Operation.TRANSFORM, f"transformation_id={execute_request.transformation_id} model_id={execute_request.model_id}")
+    log.debug("-> execute_transformation()")
     try:
         # Validate transformation exists
         transformation = await Transformation.get(execute_request.transformation_id)
@@ -113,6 +124,9 @@ async def execute_transformation(execute_request: TransformationExecuteRequest):
         raise  # Let global exception handlers return proper status codes
     except Exception as e:
         logger.error(f"Error executing transformation: {str(e)}")
+        get_logger("transformations_api", Operation.TRANSFORM, f"transformation_id={execute_request.transformation_id}", Result.FAILURE).error(
+            f"execute_transformation() failed: {e}"
+        )
         raise HTTPException(
             status_code=500, detail=f"Error executing transformation: {str(e)}"
         )
@@ -192,6 +206,8 @@ async def update_transformation(
     transformation_id: str, transformation_update: TransformationUpdate
 ):
     """Update a transformation."""
+    log = get_logger("transformations_api", Operation.UPDATE, f"transformation_id={transformation_id}")
+    log.debug("-> update_transformation()")
     try:
         transformation = await Transformation.get(transformation_id)
         if not transformation:
@@ -211,6 +227,7 @@ async def update_transformation(
 
         await transformation.save()
 
+        log.bind(result=Result.SUCCESS).info(f"<- update_transformation() ok")
         return TransformationResponse(
             id=transformation.id or "",
             name=transformation.name,
@@ -227,6 +244,9 @@ async def update_transformation(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error updating transformation {transformation_id}: {str(e)}")
+        get_logger("transformations_api", Operation.UPDATE, f"transformation_id={transformation_id}", Result.FAILURE).error(
+            f"update_transformation() failed: {e}"
+        )
         raise HTTPException(
             status_code=500, detail=f"Error updating transformation: {str(e)}"
         )
@@ -235,6 +255,8 @@ async def update_transformation(
 @router.delete("/transformations/{transformation_id}")
 async def delete_transformation(transformation_id: str):
     """Delete a transformation."""
+    log = get_logger("transformations_api", Operation.DELETE, f"transformation_id={transformation_id}")
+    log.debug("-> delete_transformation()")
     try:
         transformation = await Transformation.get(transformation_id)
         if not transformation:
@@ -242,11 +264,15 @@ async def delete_transformation(transformation_id: str):
 
         await transformation.delete()
 
+        log.bind(result=Result.SUCCESS).info(f"<- delete_transformation() ok")
         return {"message": "Transformation deleted successfully"}
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error deleting transformation {transformation_id}: {str(e)}")
+        get_logger("transformations_api", Operation.DELETE, f"transformation_id={transformation_id}", Result.FAILURE).error(
+            f"delete_transformation() failed: {e}"
+        )
         raise HTTPException(
             status_code=500, detail=f"Error deleting transformation: {str(e)}"
         )

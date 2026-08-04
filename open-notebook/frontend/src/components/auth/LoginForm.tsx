@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useAuth } from '@/lib/hooks/use-auth'
@@ -21,6 +21,17 @@ export function LoginForm() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [configInfo, setConfigInfo] = useState<{ apiUrl: string; version: string; buildTime: string } | null>(null)
   const router = useRouter()
+
+  const redirectAfterAuth = useCallback(() => {
+    const redirectPath = sessionStorage.getItem('redirectAfterLogin')
+    if (redirectPath) {
+      sessionStorage.removeItem('redirectAfterLogin')
+      router.push(redirectPath)
+      return
+    }
+
+    router.push('/notebooks')
+  }, [router])
 
   // Load config info for debugging
   useEffect(() => {
@@ -47,7 +58,7 @@ export function LoginForm() {
 
         // If auth is not required, redirect to notebooks
         if (!required) {
-          router.push('/notebooks')
+          redirectAfterAuth()
         }
       } catch (error) {
         console.error('Error checking auth requirement:', error)
@@ -60,14 +71,14 @@ export function LoginForm() {
     // If we already know auth status, use it
     if (authRequired !== null) {
       if (!authRequired && isAuthenticated) {
-        router.push('/notebooks')
+        redirectAfterAuth()
       } else {
         setIsCheckingAuth(false)
       }
     } else {
       void checkAuth()
     }
-  }, [hasHydrated, authRequired, checkAuthRequired, router, isAuthenticated])
+  }, [hasHydrated, authRequired, checkAuthRequired, redirectAfterAuth, isAuthenticated])
 
   // Show loading while checking if auth is required
   if (!hasHydrated || isCheckingAuth) {

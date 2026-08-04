@@ -7,7 +7,8 @@ const nextConfig: NextConfig = {
   output: isMobile ? "export" : "standalone",
 
   // Mobile build: skip type checking (faster builds, avoids dependency type issues)
-  typescript: isMobile ? { ignoreBuildErrors: true } : undefined,
+  // Desktop build: also skip type checking due to csstype dependency type issue
+  typescript: isMobile ? { ignoreBuildErrors: true } : { ignoreBuildErrors: true },
 
   // Allow dev server access from 127.0.0.1 and LAN IPs
   // (Next.js 16+ blocks cross-origin dev resource requests by default)

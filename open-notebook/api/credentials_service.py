@@ -39,6 +39,7 @@ PROVIDER_ENV_CONFIG: Dict[str, dict] = {
     "deepseek": {"required": ["DEEPSEEK_API_KEY"]},
     "xai": {"required": ["XAI_API_KEY"]},
     "openrouter": {"required": ["OPENROUTER_API_KEY"]},
+    "sensenova": {"required": ["SENSENOVA_API_KEY"]},
     "voyage": {"required": ["VOYAGE_API_KEY"]},
     "elevenlabs": {"required": ["ELEVENLABS_API_KEY"]},
     "deepgram": {"required": ["DEEPGRAM_API_KEY"]},
@@ -71,7 +72,8 @@ PROVIDER_MODALITIES: Dict[str, List[str]] = {
     "mistral": ["language", "embedding", "speech_to_text", "text_to_speech"],
     "deepseek": ["language"],
     "xai": ["language", "text_to_speech"],
-    "openrouter": ["language", "embedding"],
+    "openrouter": ["language", "embedding", "speech_to_text", "text_to_speech"],
+    "sensenova": ["language", "embedding"],
     "voyage": ["embedding"],
     "elevenlabs": ["text_to_speech", "speech_to_text"],
     "deepgram": ["text_to_speech"],
@@ -292,6 +294,22 @@ def create_credential_from_env(provider: str) -> Credential:
             api_key=SecretStr(api_key) if api_key else None,
             base_url=os.environ.get("OPENAI_COMPATIBLE_BASE_URL"),
         )
+    elif provider == "sensenova":
+        api_key = os.environ.get("SENSENOVA_API_KEY")
+        return Credential(
+            name=name,
+            provider=provider,
+            modalities=modalities,
+            api_key=SecretStr(api_key) if api_key else None,
+            base_url=os.environ.get(
+                "SENSENOVA_BASE_URL",
+                "https://api.sensenova.cn/compatible-mode/v2",
+            ),
+            endpoint_embedding=os.environ.get(
+                "SENSENOVA_EMBEDDING_URL",
+                "https://api.sensenova.cn/v1/llm/embeddings",
+            ),
+        )
     elif provider == "google":
         # Support both GOOGLE_API_KEY and GEMINI_API_KEY (fallback)
         api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
@@ -377,6 +395,7 @@ async def test_credential(credential_id: str) -> dict:
             _test_azure_connection,
             _test_ollama_connection,
             _test_openai_compatible_connection,
+            _test_sensenova_connection,
         )
 
         provider = cred.provider.lower()
@@ -407,6 +426,10 @@ async def test_credential(credential_id: str) -> dict:
                 api_key=config.get("api_key"),
                 api_version=config.get("api_version"),
             )
+            return {"provider": provider, "success": success, "message": message}
+
+        if provider == "sensenova":
+            success, message = await _test_sensenova_connection(config.get("api_key"))
             return {"provider": provider, "success": success, "message": message}
 
         # Standard provider: use Esperanto to create and test
@@ -534,6 +557,7 @@ async def discover_with_config(provider: str, config: dict) -> List[dict]:
         "deepseek": "https://api.deepseek.com/models",
         "xai": "https://api.x.ai/v1/models",
         "openrouter": "https://openrouter.ai/api/v1/models",
+        "sensenova": "https://api.sensenova.cn/compatible-mode/v2/models",
         "dashscope": "https://dashscope.aliyuncs.com/compatible-mode/v1/models",
         "minimax": "https://api.minimax.io/v1/models",
     }
@@ -581,6 +605,35 @@ async def discover_with_config(provider: str, config: dict) -> List[dict]:
         except Exception as e:
             logger.warning(f"Failed to discover openai_compatible models: {e}")
             return []
+
+    if provider == "sensenova":
+        if not api_key:
+            return []
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    "https://api.sensenova.cn/compatible-mode/v2/models",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    timeout=30.0,
+                )
+                response.raise_for_status()
+                data = response.json()
+                return [
+                    {
+                        "name": m.get("id", ""),
+                        "provider": "sensenova",
+                        "model_type": classify_model_type(m.get("id", ""), "sensenova"),
+                    }
+                    for m in data.get("data", [])
+                    if m.get("id")
+                ]
+        except Exception as e:
+            logger.warning(f"Failed to discover SenseNova models: {type(e).__name__}")
+            return [
+                {"name": "deepseek-v4-flash", "provider": "sensenova", "model_type": "language"},
+                {"name": "sensenova-6.7-flash-lite", "provider": "sensenova", "model_type": "language"},
+                {"name": "sensenova-embedding", "provider": "sensenova", "model_type": "embedding"},
+            ]
 
     if provider == "azure":
         endpoint = config.get("endpoint")

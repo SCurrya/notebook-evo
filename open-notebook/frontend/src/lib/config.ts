@@ -12,6 +12,42 @@ const BUILD_TIME = new Date().toISOString()
 let config: AppConfig | null = null
 let configPromise: Promise<AppConfig> | null = null
 
+async function fetchBackendConfig(apiUrl: string): Promise<AppConfig> {
+  // Desktop EXE builds may serve the config payload from /config instead of /api/config.
+  // Try both so the same frontend bundle works in the packaged app and web/mobile builds.
+  const endpoints = [`${apiUrl}/api/config`, `${apiUrl}/config`]
+  let lastError: unknown = null
+
+  for (const endpoint of endpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        cache: 'no-store',
+      })
+
+      if (response.ok) {
+        const data: BackendConfigResponse = await response.json()
+        return {
+          apiUrl,
+          version: data.version || 'unknown',
+          buildTime: BUILD_TIME,
+          latestVersion: data.latestVersion || null,
+          hasUpdate: data.hasUpdate || false,
+          dbStatus: data.dbStatus,
+        }
+      }
+
+      lastError = new Error(`API config endpoint returned status ${response.status}`)
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  if (lastError instanceof Error) {
+    throw lastError
+  }
+  throw new Error('Unable to load backend config')
+}
+
 /**
  * Get the API URL to use for requests.
  *
@@ -76,23 +112,9 @@ async function fetchConfig(): Promise<AppConfig> {
     if (isDev) console.log('✅ [Config] Discovered mobile API URL:', mobileApiUrl)
 
     try {
-      const response = await fetch(`${mobileApiUrl}/api/config`, {
-        cache: 'no-store',
-      })
-      if (response.ok) {
-        const data: BackendConfigResponse = await response.json()
-        config = {
-          apiUrl: mobileApiUrl,
-          version: data.version || 'unknown',
-          buildTime: BUILD_TIME,
-          latestVersion: data.latestVersion || null,
-          hasUpdate: data.hasUpdate || false,
-          dbStatus: data.dbStatus,
-        }
-        if (isDev) console.log('✅ [Config] Successfully loaded mobile API config:', config)
-        return config
-      }
-      throw new Error(`API config endpoint returned status ${response.status}`)
+      config = await fetchBackendConfig(mobileApiUrl)
+      if (isDev) console.log('✅ [Config] Successfully loaded mobile API config:', config)
+      return config
     } catch (error) {
       if (isDev) console.log('⚠️ [Config] Failed to fetch mobile backend config:', error)
       throw error

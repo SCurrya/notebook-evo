@@ -9,6 +9,7 @@ from loguru import logger
 
 from api.client import api_client
 from open_notebook.domain.notebook import Asset, Source
+from open_notebook.utils.logger import Operation, log_operation
 
 
 @dataclass
@@ -69,6 +70,7 @@ class SourcesService:
     def __init__(self):
         logger.info("Using API for sources operations")
 
+    @log_operation("sources_service", Operation.READ)
     def get_all_sources(
         self, notebook_id: Optional[str] = None
     ) -> List[SourceWithMetadata]:
@@ -100,6 +102,7 @@ class SourcesService:
             sources.append(source_with_metadata)
         return sources
 
+    @log_operation("sources_service", Operation.READ)
     def get_source(self, source_id: str) -> SourceWithMetadata:
         """Get a specific source."""
         response = api_client.get_source(source_id)
@@ -125,6 +128,7 @@ class SourcesService:
             source=source, embedded_chunks=source_data.get("embedded_chunks", 0)
         )
 
+    @log_operation("sources_service", Operation.CREATE)
     def create_source(
         self,
         notebook_id: Optional[str] = None,
@@ -283,6 +287,7 @@ class SourcesService:
             logger.error(f"Error checking source processing status: {e}")
             return True  # Assume complete on error
 
+    @log_operation("sources_service", Operation.UPDATE)
     def update_source(self, source: Source) -> Source:
         """Update a source."""
         if not source.id:
@@ -306,6 +311,7 @@ class SourcesService:
 
         return source
 
+    @log_operation("sources_service", Operation.DELETE)
     def delete_source(self, source_id: str) -> bool:
         """Delete a source."""
         api_client.delete_source(source_id)

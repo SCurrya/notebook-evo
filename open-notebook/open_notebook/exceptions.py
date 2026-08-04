@@ -1,7 +1,20 @@
+from open_notebook.utils.logger import Operation, Result, get_logger
+
+
 class OpenNotebookError(Exception):
     """Base exception class for Open Notebook errors."""
 
-    pass
+    def log_error(self, module: str = "exception", operation: str = Operation.READ, params: str = "-"):
+        """Log this exception with structured context. Returns self for chaining.
+
+        Usage::
+
+            raise NotFoundError("...").log_error("notebooks_api", Operation.READ, "id=abc")
+        """
+        get_logger(module, operation, params, Result.FAILURE).error(
+            f"{type(self).__name__}: {self}"
+        )
+        return self
 
 
 class DatabaseOperationError(OpenNotebookError):
