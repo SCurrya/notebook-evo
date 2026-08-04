@@ -109,7 +109,7 @@ async def provide_answer(state: SubGraphState, config: RunnableConfig) -> dict:
         )
         if not hybrid:
             return {"answers": []}
-        payload["results"] = [
+        results = [
             {
                 "id": r.id,
                 "title": r.title,
@@ -118,8 +118,8 @@ async def provide_answer(state: SubGraphState, config: RunnableConfig) -> dict:
             }
             for r in hybrid
         ]
-        ids = [r["id"] for r in results]
-        payload["ids"] = ids
+        payload["results"] = results
+        payload["ids"] = [r["id"] for r in results]
         system_prompt = Prompter(prompt_template="ask/query_process").render(data=payload)  # type: ignore[arg-type]
         model = await provision_langchain_model(
             system_prompt,

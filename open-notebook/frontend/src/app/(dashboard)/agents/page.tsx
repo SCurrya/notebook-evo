@@ -1,7 +1,7 @@
 ﻿﻿'use client'
 
-import { useState } from 'react'
-import { Bot, CheckCircle2, Clock, Loader2, Plus, Settings2, Trash2, XCircle, Zap } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Bot, CheckCircle2, Clock, GitBranch, Loader2, Plus, Settings2, Trash2, XCircle, Zap } from 'lucide-react'
 
 import { AppShell } from '@/components/layout/AppShell'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -94,15 +94,77 @@ export default function AgentsPage() {
     if (newTaskPayload.trim()) {
       try { payload = JSON.parse(newTaskPayload) } catch { /* ignore parse errors */ }
     }
-    await createTask.mutateAsync({ title: newTaskTitle, description: newTaskDesc, priority: newTaskPriority, required_capabilities: newTaskCaps.split(',').map((s) => s.trim()).filter(Boolean), payload })
+    await createTask.mutateAsync({ title: newTaskTitle, description: newTaskDesc, priority: newTaskPriority, required_capabilities: newTaskCaps.split(',').map((s) => s.trim()).filter(Boolean), dependencies: newTaskDeps.split(',').map((s) => s.trim()).filter(Boolean), payload })
     setNewTaskTitle('')
     setNewTaskDesc('')
     setNewTaskCaps('')
     setNewTaskPayload('')
+    setNewTaskDeps('')
     setShowCreateTask(false)
   }
 
   const stats = statsQuery.data
+
+  // --- 任务依赖 DAG 可视化 ---
+  const dag = useMemo(() => {
+    const tasks = tasksQuery.data ?? []
+    if (tasks.length === 0) return null
+    const byId = new Map(tasks.map((t) => [t.id, t]))
+    const childrenOf = new Map<string, string[]>()
+    const roots: Task[] = []
+    for (const t of tasks) {
+      if (t.dependencies.length === 0) {
+        roots.push(t)
+      } else {
+        for (const dep of t.dependencies) {
+          const list = childrenOf.get(dep) ?? []
+          list.push(t.id)
+          childrenOf.set(dep, list)
+        }
+      }
+    }
+    return { tasks, byId, childrenOf, roots }
+  }, [tasksQuery.data])
+
+  const taskStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'border-green-500/60 bg-green-500/10'
+      case 'failed': return 'border-red-500/60 bg-red-500/10'
+      case 'running': case 'assigned': return 'border-blue-500/60 bg-blue-500/10 animate-pulse'
+      case 'pending': return 'border-amber-500/60 bg-amber-500/10'
+      default: return 'border-muted bg-muted/30'
+    }
+  }
+
+  const renderDagNode = (taskId: string, visited: Set<string>) => {
+    const task = dag?.byId.get(taskId)
+    if (!task || visited.has(taskId)) return null
+    visited.add(taskId)
+    const children = dag?.childrenOf.get(taskId) ?? []
+    return (
+      <div key={task.id} className="flex flex-col items-center gap-2">
+        <div className={`min-w-36 rounded-xl border px-3 py-2 text-center ${taskStatusColor(task.status)}`}>
+          <p className="text-xs font-medium truncate max-w-44">{task.title}</p>
+          <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">{task.id.slice(0, 8)} · {task.status}</p>
+        </div>
+        {children.length > 0 && (
+          <div className="flex items-start gap-4">
+            {children.map((c) => (
+              <div key={c} className="flex flex-col items-center">
+                <div className="h-4 w-px bg-border" />
+                <div className="flex items-center gap-1">
+                  <div className="h-px w-8 bg-border" />
+                  <GitBranch className="h-3 w-3 text-muted-foreground" />
+                  <div className="h-px w-8 bg-border" />
+                </div>
+                {renderDagNode(c, visited)}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <AppShell>
@@ -116,6 +178,28 @@ export default function AgentsPage() {
             <StatCard icon={CheckCircle2} label="已完成" value={stats?.tasks.completed ?? 0} color="bg-green-100 text-green-600 dark:bg-green-950 dark:text-green-400" />
             <StatCard icon={XCircle} label="失败" value={stats?.tasks.failed ?? 0} color="bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400" />
           </div>
+
+          {dag && dag.roots.length > 0 && (
+            <Card className="research-panel rounded-[24px]">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <GitBranch className="h-4 w-4" />
+                  任务依赖工作流
+                </CardTitle>
+                <CardDescription>任务间依赖关系可视化 —— 前置任务完成后，后续任务才会自动执行</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto p-2">
+                  <div className="flex items-start justify-start gap-8">
+                    {dag.roots.map((r) => {
+                      const visited = new Set<string>()
+                      return <div key={r.id}>{renderDagNode(r.id, visited)}</div>
+                    })}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {agentsQuery.data?.length === 0 && (
             <Alert className="bg-blue-50 text-blue-900 border-blue-200 dark:bg-blue-950/40 dark:text-blue-200 dark:border-blue-900 rounded-2xl">
@@ -231,6 +315,10 @@ export default function AgentsPage() {
                     </div>
                   </div>
                   <div className="space-y-1">
+                    <Label className="text-xs">依赖任务 ID（逗号分隔，可选）</Label>
+                    <Input value={newTaskDeps} onChange={(e) => setNewTaskDeps(e.target.value)} placeholder="依赖任务完成后才会执行此任务" />
+                  </div>
+                  <div className="space-y-1">
                     <Label className="text-xs">负载（JSON，可选）</Label>
                     <Textarea value={newTaskPayload} onChange={(e) => setNewTaskPayload(e.target.value)} rows={3} placeholder='{"test_path": "tests/", "timeout": 300}' className="font-mono text-xs" />
                   </div>
@@ -262,6 +350,11 @@ export default function AgentsPage() {
                         </div>
                       </div>
                       {task.description && <p className="text-xs text-muted-foreground">{task.description}</p>}
+                      {task.dependencies.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          依赖: {task.dependencies.map((d) => d.slice(0, 8)).join(', ')}
+                        </p>
+                      )}
                       {task.status === 'running' && task.progress > 0 && (
                         <div className="w-full bg-muted rounded-full h-1.5"><div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${task.progress}%` }} /></div>
                       )}
