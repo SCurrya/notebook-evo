@@ -103,6 +103,41 @@ async def _extract_with_llm(content: str) -> Dict[str, Any]:
     return _parse_llm_json(text)
 
 
+@router.post("/ask")
+async def graph_ask(request: dict):
+    """GraphRAG 问答：结合知识图谱实体关系 + 向量检索回答。
+
+    请求体: {"question": str, "notebook_id": str, "top_k": int}
+    """
+    from open_notebook.graphrag import graph_rag_ask
+
+    question = (request.get("question") or "").strip()
+    notebook_id = request.get("notebook_id") or ""
+    top_k = int(request.get("top_k") or 5)
+    if not question:
+        raise HTTPException(status_code=400, detail="question 不能为空")
+    if not notebook_id:
+        raise HTTPException(status_code=400, detail="notebook_id 不能为空")
+    log = get_logger(
+        "knowledge_graph_api",
+        Operation.READ,
+        f"graph_ask notebook_id={notebook_id} q={question[:40]}",
+    )
+    log.debug("-> graph_ask()")
+    try:
+        result = await graph_rag_ask(notebook_id, question, top_k)
+        log.bind(result=Result.SUCCESS).info(
+            f"<- graph_ask() entities={len(result['entities'])} "
+            f"paths={len(result['graph_paths'])} retrieved={len(result['retrieved'])}"
+        )
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"GraphRAG 问答失败: {e}")
+        raise HTTPException(status_code=500, detail=f"GraphRAG 问答失败: {str(e)}")
+
+
 @router.post("/extract", response_model=GraphExtractResponse)
 async def extract_graph(request: GraphExtractRequest):
     """从笔记本内容提取实体和关系（调用 LLM）。"""

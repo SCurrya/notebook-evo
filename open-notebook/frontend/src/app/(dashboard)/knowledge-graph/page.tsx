@@ -20,7 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
-import { Network, Sparkles, Plus, Loader2 } from 'lucide-react'
+import { Network, Sparkles, Plus, Loader2, MessageSquareText } from 'lucide-react'
 import { useNotebooks } from '@/lib/hooks/use-notebooks'
 import {
   useKnowledgeGraph,
@@ -29,10 +29,11 @@ import {
   useCreateRelation,
   useDeleteEntity,
   useDeleteRelation,
+  useGraphAsk,
 } from '@/lib/hooks/use-knowledge-graph'
 import { GraphView } from '@/components/knowledge-graph/GraphView'
 import { EntityPanel } from '@/components/knowledge-graph/EntityPanel'
-import type { GraphEntity } from '@/lib/api/knowledge-graph'
+import type { GraphAskResult, GraphEntity } from '@/lib/api/knowledge-graph'
 
 export default function KnowledgeGraphPage() {
   const [selectedNotebookId, setSelectedNotebookId] = useState<string>('')
@@ -63,6 +64,23 @@ export default function KnowledgeGraphPage() {
   const [newRelationSource, setNewRelationSource] = useState('')
   const [newRelationTarget, setNewRelationTarget] = useState('')
   const [newRelationType, setNewRelationType] = useState('')
+
+  // GraphRAG 问答状态
+  const [askQuestion, setAskQuestion] = useState('')
+  const [askResult, setAskResult] = useState<GraphAskResult | null>(null)
+  const graphAsk = useGraphAsk()
+
+  const handleAsk = () => {
+    if (!selectedNotebookId || !askQuestion.trim()) return
+    graphAsk.mutate(
+      { question: askQuestion.trim(), notebook_id: selectedNotebookId, top_k: 5 },
+      {
+        onSuccess: (data) => {
+          setAskResult(data)
+        },
+      }
+    )
+  }
 
   const handleExtract = () => {
     if (!selectedNotebookId) return
@@ -204,6 +222,65 @@ export default function KnowledgeGraphPage() {
               </Badge>
             )}
           </div>
+
+          {/* GraphRAG 问答面板 */}
+          {selectedNotebookId && (
+            <div className="research-panel rounded-[24px] p-4 bg-background/70">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageSquareText className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">图谱智能问答（GraphRAG）</span>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={askQuestion}
+                  onChange={(e) => setAskQuestion(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleAsk()
+                  }}
+                  placeholder="输入问题，例如：MCP 是由谁提出的？它和哪些概念相关？"
+                  className="flex-1"
+                />
+                <Button onClick={handleAsk} disabled={graphAsk.isPending || !askQuestion.trim()}>
+                  {graphAsk.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4 mr-1" />
+                  )}
+                  提问
+                </Button>
+              </div>
+              {graphAsk.isError && (
+                <p className="mt-2 text-xs text-destructive">问答失败，请检查模型配置或稍后重试</p>
+              )}
+              {askResult && (
+                <div className="mt-3 space-y-3">
+                  <div className="rounded-xl border bg-background/60 p-3">
+                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{askResult.answer}</p>
+                  </div>
+                  {(askResult.entities.length > 0 || askResult.graph_paths.length > 0) && (
+                    <details className="rounded-xl border bg-background/60 p-3">
+                      <summary className="cursor-pointer text-xs text-muted-foreground">
+                        查看图谱推理路径（{askResult.entities.length} 实体 · {askResult.graph_paths.length} 关系）
+                      </summary>
+                      <div className="mt-2 space-y-1">
+                        {askResult.entities.length > 0 && (
+                          <p className="text-xs">
+                            <span className="text-muted-foreground">匹配实体：</span>
+                            {askResult.entities.map((e) => e.name).join('、')}
+                          </p>
+                        )}
+                        {askResult.graph_paths.map((p, i) => (
+                          <p key={i} className="font-mono text-xs">
+                            {p.source} <span className="text-primary">--[{p.type}]--&gt;</span> {p.target}
+                          </p>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 主内容区：图谱 + 详情面板 */}
           {!selectedNotebookId ? (

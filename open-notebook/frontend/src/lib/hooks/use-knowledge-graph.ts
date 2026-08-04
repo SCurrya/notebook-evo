@@ -22,6 +22,24 @@ export function useKnowledgeGraph(notebookId: string) {
   })
 }
 
+// GraphRAG 问答
+export function useGraphAsk() {
+  const { toast } = useToast()
+  const { t } = useTranslation()
+
+  return useMutation({
+    mutationFn: (data: { question: string; notebook_id: string; top_k?: number }) =>
+      knowledgeGraphApi.ask(data),
+    onError: (error) => {
+      toast({
+        title: t('common.error'),
+        description: getApiErrorMessage(error) || 'GraphRAG 问答失败',
+        variant: 'destructive',
+      })
+    },
+  })
+}
+
 // 从笔记本内容提取知识图谱
 export function useExtractGraph() {
   const queryClient = useQueryClient()
