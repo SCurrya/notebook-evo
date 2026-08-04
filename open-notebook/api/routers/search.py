@@ -8,6 +8,9 @@ from loguru import logger
 from api.models import (
     AskRequest,
     AskResponse,
+    HybridSearchRequest,
+    HybridSearchResponse,
+    HybridSearchResultItem,
     SearchRequest,
     SearchResponse,
     SemanticSearchRequest,
@@ -267,6 +270,52 @@ async def stream_ask_response(
         logger.error(f"Error in ask streaming: {str(e)}")
         error_data = {"type": "error", "message": user_message}
         yield f"data: {json.dumps(error_data)}\n\n"
+
+
+@router.post("/search/hybrid", response_model=HybridSearchResponse)
+async def hybrid_search_endpoint(request: HybridSearchRequest):
+    """Hybrid search: BM25 + vector with RRF fusion and optional rerank."""
+    from open_notebook.search.hybrid import hybrid_search_with_details
+
+    log = get_logger("search_api", Operation.SEARCH, f"hybrid query={request.query[:50]}")
+    log.debug("-> hybrid_search_endpoint()")
+    try:
+        details = await hybrid_search_with_details(
+            query=request.query,
+            limit=request.limit,
+            search_sources=request.search_sources,
+            search_notes=request.search_notes,
+            minimum_score=request.minimum_score,
+            rerank=request.rerank,
+        )
+        items = [
+            HybridSearchResultItem(
+                id=r["id"],
+                title=r["title"],
+                content_preview=r["content_preview"],
+                parent_id=r["parent_id"],
+                result_type=r["result_type"],
+                rrf_score=r["rrf_score"],
+                vector_score=r["vector_score"],
+                text_score=r["text_score"],
+                rerank_score=r["rerank_score"],
+                sources=r["sources"],
+            )
+            for r in details["results"]
+        ]
+        log.bind(result=Result.SUCCESS).info(f"<- hybrid_search_endpoint() ok count={len(items)}")
+        return HybridSearchResponse(
+            query=request.query,
+            results=items,
+            total_count=len(items),
+            vector_hits=details["vector_hits"],
+            text_hits=details["text_hits"],
+            rerank_used=details["rerank_used"],
+        )
+    except Exception as e:
+        logger.error(f"Hybrid search failed: {e}")
+        get_logger("search_api", Operation.SEARCH, "-", Result.FAILURE).error(f"hybrid_search_endpoint() failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Hybrid search failed: {str(e)}")
 
 
 @router.post("/search/ask")
