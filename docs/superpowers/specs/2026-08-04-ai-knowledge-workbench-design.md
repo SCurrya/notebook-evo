@@ -1,4 +1,4 @@
-# AI 知识工作台（Open Notebook Enhanced）设计文档
+# Notebook Evo（Open Notebook Enhanced）设计文档
 
 > 日期：2026-08-04
 > 状态：已确认
@@ -308,7 +308,7 @@
 
 ## 十、GitHub 展示方案
 
-- 仓库名：`ai-knowledge-workbench`（或用户定）
+- 仓库名：`notebook-evo`（已确认）
 - README 结构：Hero 图 → 一句话定位 → 功能矩阵（表）→ 快速开始（Docker/源码）→ 截图 → 增强清单（vs 上游）→ 技术架构图 → 测试 → 路线图
 - 主分支：`main`，工作流：PR → CI 绿 → merge
 - 演示视频链接（README 顶部 + 简历）
@@ -318,7 +318,7 @@
 
 ## 附：需要用户确认的开放项
 
-1. GitHub 仓库名（建议 `ai-knowledge-workbench`）
+1. GitHub 仓库名：`notebook-evo` ✅ 已确认
 2. 示例 PDF 素材（用户提供一份真实 PDF 或我生成测试 PDF）
 3. MCP Server 是否需要接入 Claude Desktop 实测（需用户本机有 Claude Desktop）
 4. Tailscale 是否需要实测（需用户手机装 APK + Tailscale）
