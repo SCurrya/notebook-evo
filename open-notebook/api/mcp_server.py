@@ -24,9 +24,8 @@ import asyncio
 import os
 from typing import Any, Dict, List, Optional
 
-from loguru import logger
-
 from fastmcp import FastMCP
+from loguru import logger
 
 # Global MCP server (stdio)
 mcp = FastMCP("notebook-evo")
@@ -109,6 +108,7 @@ async def ask_knowledge_base(
         notebook_id: 可选，限定笔记本
     """
     from langchain_core.prompts import ChatPromptTemplate
+
     from open_notebook.search.hybrid import hybrid_search
 
     results = await hybrid_search(
@@ -158,7 +158,7 @@ async def create_note(notebook_id: str, title: str, content: str) -> Dict[str, s
         title: 笔记标题
         content: 笔记内容
     """
-    from open_notebook.domain.notebook import Notebook, Note
+    from open_notebook.domain.notebook import Note, Notebook
 
     notebook = await Notebook.get(notebook_id)
     if not notebook:

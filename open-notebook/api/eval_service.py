@@ -104,6 +104,7 @@ async def _generate_answer(question: str, context: str) -> str:
     """Generate an answer using the default text model (best-effort)."""
     try:
         from langchain_core.prompts import ChatPromptTemplate
+
         from open_notebook.ai.provision import provision_langchain_model
 
         prompt = ChatPromptTemplate.from_messages(
@@ -153,9 +154,13 @@ async def _metrics_ragas(
 ) -> Dict[str, float]:
     """Score with RAGAS. Falls back to the heuristic scorer on any failure."""
     try:
-        from ragas import EvaluationDataset, SingleTurnSample
-        from ragas import evaluate
-        from ragas.metrics import context_precision, context_recall, faithfulness, answer_relevancy
+        from ragas import EvaluationDataset, SingleTurnSample, evaluate
+        from ragas.metrics import (
+            answer_relevancy,
+            context_precision,
+            context_recall,
+            faithfulness,
+        )
 
         sample = SingleTurnSample(
             user_input=question,
