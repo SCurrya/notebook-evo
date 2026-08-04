@@ -318,6 +318,32 @@ async def hybrid_search_endpoint(request: HybridSearchRequest):
         raise HTTPException(status_code=500, detail=f"Hybrid search failed: {str(e)}")
 
 
+@router.post("/search/adaptive")
+async def adaptive_search_endpoint(request: HybridSearchRequest):
+    """自适应检索：HyDE + 语义缓存 + 策略路由（面试展示用）。"""
+    from open_notebook.search.advanced_retrieval import adaptive_hybrid_search
+
+    log = get_logger("search_api", Operation.SEARCH, f"adaptive query={request.query[:50]}")
+    try:
+        result = await adaptive_hybrid_search(
+            query=request.query,
+            limit=request.limit,
+            search_sources=request.search_sources,
+            search_notes=request.search_notes,
+            minimum_score=request.minimum_score,
+            use_hyde=True,
+            use_cache=True,
+        )
+        log.bind(result=Result.SUCCESS).info(
+            f"<- adaptive_search_endpoint() strategy={result['diagnostics']['strategy']} "
+            f"cache_hit={result['diagnostics']['cache_hit']} hyde={result['diagnostics']['hyde_used']}"
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Adaptive search failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Adaptive search failed: {str(e)}")
+
+
 @router.post("/search/ask")
 async def ask_knowledge_base(ask_request: AskRequest):
     """Ask the knowledge base a question using AI models."""
