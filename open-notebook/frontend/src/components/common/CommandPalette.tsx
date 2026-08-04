@@ -30,6 +30,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { useTranslation } from '@/lib/hooks/use-translation'
+import { navigateToStaticHref, notebookDetailHref } from '@/lib/routes'
 import type { TFunction } from 'i18next'
 
 const getNavigationItems = (t: TFunction) => [
@@ -226,7 +227,7 @@ export function CommandPalette() {
               <CommandItem
                 key={notebook.id}
                 value={`notebook ${notebook.name} ${notebook.description || ''}`}
-                onSelect={() => handleNavigate(`/notebooks/${notebook.id}`)}
+                onSelect={() => handleSelect(() => navigateToStaticHref(notebookDetailHref(notebook.id), router))}
               >
                 <Book className="h-4 w-4" />
                 <span>{notebook.name}</span>

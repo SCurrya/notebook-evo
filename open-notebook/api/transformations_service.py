@@ -9,6 +9,7 @@ from loguru import logger
 
 from api.client import api_client
 from open_notebook.domain.transformation import Transformation
+from open_notebook.utils.logger import Operation, log_operation
 
 
 class TransformationsService:
@@ -17,6 +18,7 @@ class TransformationsService:
     def __init__(self):
         logger.info("Using API for transformations operations")
 
+    @log_operation("transformations_service", Operation.READ)
     def get_all_transformations(self) -> List[Transformation]:
         """Get all transformations."""
         transformations_data = api_client.get_transformations()
@@ -40,6 +42,7 @@ class TransformationsService:
             transformations.append(transformation)
         return transformations
 
+    @log_operation("transformations_service", Operation.READ)
     def get_transformation(self, transformation_id: str) -> Transformation:
         """Get a specific transformation."""
         response = api_client.get_transformation(transformation_id)
@@ -60,6 +63,7 @@ class TransformationsService:
         )
         return transformation
 
+    @log_operation("transformations_service", Operation.CREATE)
     def create_transformation(
         self,
         name: str,
@@ -93,6 +97,7 @@ class TransformationsService:
         )
         return transformation
 
+    @log_operation("transformations_service", Operation.UPDATE)
     def update_transformation(self, transformation: Transformation) -> Transformation:
         """Update a transformation."""
         if not transformation.id:
@@ -120,11 +125,13 @@ class TransformationsService:
 
         return transformation
 
+    @log_operation("transformations_service", Operation.DELETE)
     def delete_transformation(self, transformation_id: str) -> bool:
         """Delete a transformation."""
         api_client.delete_transformation(transformation_id)
         return True
 
+    @log_operation("transformations_service", Operation.TRANSFORM)
     def execute_transformation(
         self, transformation_id: str, input_text: str, model_id: str
     ) -> Union[Dict[Any, Any], List[Dict[Any, Any]]]:

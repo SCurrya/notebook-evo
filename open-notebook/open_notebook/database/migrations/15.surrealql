@@ -1,0 +1,7 @@
+-- Migration 15: Add semantic preprocessing metadata to source embeddings.
+DEFINE FIELD IF NOT EXISTS title ON TABLE source_embedding TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS subtitle ON TABLE source_embedding TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS page_number ON TABLE source_embedding TYPE option<int>;
+DEFINE FIELD IF NOT EXISTS source_file ON TABLE source_embedding TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS section ON TABLE source_embedding TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS chunk_index ON TABLE source_embedding TYPE option<int>;

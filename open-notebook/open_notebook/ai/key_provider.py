@@ -110,7 +110,7 @@ async def get_api_key(provider: str) -> Optional[str]:
     return None
 
 
-async def _provision_simple_provider(provider: str) -> bool:
+async def _provision_simple_provider(provider: str, cred: Optional[Credential] = None) -> bool:
     """
     Set environment variable for a simple provider from DB config.
 
@@ -124,7 +124,8 @@ async def _provision_simple_provider(provider: str) -> bool:
 
     env_var = config_info["env_var"]
 
-    cred = await _get_default_credential(provider_lower)
+    if cred is None:
+        cred = await _get_default_credential(provider_lower)
     if not cred:
         return False
 
@@ -142,7 +143,7 @@ async def _provision_simple_provider(provider: str) -> bool:
     return True
 
 
-async def _provision_vertex() -> bool:
+async def _provision_vertex(cred: Optional[Credential] = None) -> bool:
     """
     Set environment variables for Google Vertex AI from DB config.
 
@@ -151,7 +152,8 @@ async def _provision_vertex() -> bool:
     """
     any_set = False
 
-    cred = await _get_default_credential("vertex")
+    if cred is None:
+        cred = await _get_default_credential("vertex")
     if not cred:
         return False
 
@@ -171,7 +173,7 @@ async def _provision_vertex() -> bool:
     return any_set
 
 
-async def _provision_azure() -> bool:
+async def _provision_azure(cred: Optional[Credential] = None) -> bool:
     """
     Set environment variables for Azure OpenAI from DB config.
 
@@ -180,7 +182,8 @@ async def _provision_azure() -> bool:
     """
     any_set = False
 
-    cred = await _get_default_credential("azure")
+    if cred is None:
+        cred = await _get_default_credential("azure")
     if not cred:
         return False
 
@@ -218,7 +221,7 @@ async def _provision_azure() -> bool:
     return any_set
 
 
-async def _provision_openai_compatible() -> bool:
+async def _provision_openai_compatible(cred: Optional[Credential] = None) -> bool:
     """
     Set environment variables for OpenAI-Compatible providers from DB config.
 
@@ -227,7 +230,8 @@ async def _provision_openai_compatible() -> bool:
     """
     any_set = False
 
-    cred = await _get_default_credential("openai_compatible")
+    if cred is None:
+        cred = await _get_default_credential("openai_compatible")
     if not cred:
         return False
 
@@ -243,7 +247,7 @@ async def _provision_openai_compatible() -> bool:
     return any_set
 
 
-async def provision_provider_keys(provider: str) -> bool:
+async def provision_provider_keys(provider: str, credential: Optional[Credential] = None) -> bool:
     """
     Provision environment variables from database for a specific provider.
 
@@ -270,14 +274,14 @@ async def provision_provider_keys(provider: str) -> bool:
 
     # Handle complex providers with multiple config fields
     if provider_lower == "vertex":
-        return await _provision_vertex()
+        return await _provision_vertex(credential)
     elif provider_lower == "azure":
-        return await _provision_azure()
+        return await _provision_azure(credential)
     elif provider_lower in ("openai-compatible", "openai_compatible"):
-        return await _provision_openai_compatible()
+        return await _provision_openai_compatible(credential)
 
     # Handle simple providers
-    return await _provision_simple_provider(provider_lower)
+    return await _provision_simple_provider(provider_lower, credential)
 
 
 async def provision_all_keys() -> dict[str, bool]:

@@ -66,8 +66,28 @@ async def migrate_podcast_profiles() -> None:
     """Migrate episode and speaker profiles from legacy strings to Model record IDs.
 
     Idempotent: skips profiles where new fields are already populated.
+    Graceful: if no AI providers are configured, returns skipped=3 instead of failing.
     """
     logger.info("Starting podcast profile data migration...")
+
+    # === 前置守卫：检查是否有可用的 AI Provider/Credential ===
+    try:
+        from open_notebook.domain.credential import Credential
+
+        credentials = await Credential.get_all()
+        if not credentials:
+            logger.warning(
+                "No AI provider credentials configured. "
+                "Skipping podcast profile migration (profiles will migrate on first AI use)."
+            )
+            logger.info(
+                "Podcast profile migration skipped. "
+                "Episodes: 0 migrated, 3 skipped, 0 failed. "
+                "Speakers: 0 migrated, 3 skipped, 0 failed."
+            )
+            return
+    except Exception as e:
+        logger.debug(f"Could not check credentials (continuing migration): {e}")
 
     ep_migrated = 0
     ep_skipped = 0

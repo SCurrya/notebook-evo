@@ -36,31 +36,58 @@ import {
   Settings,
   LogOut,
   ChevronLeft,
-  Menu,
+  ChevronRight,
   FileText,
   Plus,
   Wrench,
   Command,
+  Sparkles,
+  FileBarChart,
+  HelpCircle,
+  Clock,
+  Network,
+  KeyRound,
+  Video,
+  ScrollText,
+  Cpu,
+  Presentation,
+  PenTool,
+  FileDown,
+  ImageIcon,
 } from 'lucide-react'
 
 const getNavigation = (t: TFunction) => [
   {
     title: t('navigation.collect'),
-    items: [
-      { name: t('navigation.sources'), href: '/sources', icon: FileText },
-    ],
+    items: [{ name: t('navigation.sources'), href: '/sources', icon: FileText }],
   },
   {
     title: t('navigation.process'),
     items: [
       { name: t('navigation.notebooks'), href: '/notebooks', icon: Book },
       { name: t('navigation.askAndSearch'), href: '/search', icon: Search },
+      { name: '知识图谱', href: '/knowledge-graph', icon: Network },
     ],
   },
   {
     title: t('navigation.create'),
     items: [
       { name: t('navigation.podcasts'), href: '/podcasts', icon: Mic },
+      { name: '视频生成', href: '/video', icon: Video },
+      { name: 'PPT 生成', href: '/ppt', icon: Presentation },
+      { name: '博客创作', href: '/blog', icon: PenTool },
+      { name: 'PDF 生成', href: '/pdf', icon: FileDown },
+      { name: '图片生成', href: '/image', icon: ImageIcon },
+    ],
+  },
+  {
+    title: t('navigation.studio'),
+    items: [
+      { name: t('navigation.studioHome'), href: '/studio', icon: Sparkles },
+      { name: t('navigation.studioTemplates'), href: '/studio/templates', icon: FileText },
+      { name: t('navigation.studioReport'), href: '/studio/report', icon: FileBarChart },
+      { name: t('navigation.studioFAQ'), href: '/studio/faq', icon: HelpCircle },
+      { name: t('navigation.studioTimeline'), href: '/studio/timeline', icon: Clock },
     ],
   },
   {
@@ -69,7 +96,15 @@ const getNavigation = (t: TFunction) => [
       { name: t('navigation.models'), href: '/settings/api-keys', icon: Bot },
       { name: t('navigation.transformations'), href: '/transformations', icon: Shuffle },
       { name: t('navigation.settings'), href: '/settings', icon: Settings },
+      { name: 'API 访问密钥', href: '/settings/api-access', icon: KeyRound },
       { name: t('navigation.advanced'), href: '/advanced', icon: Wrench },
+    ],
+  },
+  {
+    title: '系统',
+    items: [
+      { name: '多Agent系统', href: '/agents', icon: Cpu },
+      { name: '系统日志', href: '/logs', icon: ScrollText },
     ],
   },
 ] as const
@@ -85,9 +120,8 @@ export function AppSidebar() {
   const { openSourceDialog, openNotebookDialog, openPodcastDialog } = useCreateDialogs()
 
   const [createMenuOpen, setCreateMenuOpen] = useState(false)
-  const [isMac, setIsMac] = useState(true) // Default to Mac for SSR
+  const [isMac, setIsMac] = useState(true)
 
-  // Detect platform for keyboard shortcut display
   useEffect(() => {
     setIsMac(navigator.platform.toLowerCase().includes('mac'))
   }, [])
@@ -108,48 +142,41 @@ export function AppSidebar() {
     <TooltipProvider delayDuration={0}>
       <div
         className={cn(
-          'app-sidebar flex h-full flex-col bg-sidebar border-sidebar-border border-r transition-all duration-300 ease-emphasized',
+          'app-sidebar flex h-full min-h-0 flex-col border-r transition-all duration-300 ease-emphasized overflow-hidden',
           isCollapsed ? 'w-16' : 'w-64'
         )}
       >
         <div
           className={cn(
-            'flex h-16 items-center group relative',
-            isCollapsed ? 'justify-center px-2' : 'justify-between px-4'
+            'relative flex h-16 shrink-0 items-center border-b border-sidebar-border/60',
+            isCollapsed ? 'px-2' : 'px-3 justify-between'
           )}
         >
-          {/* 装饰性渐变底线 */}
-          <div className="absolute bottom-0 left-0 right-0 h-px gradient-primary opacity-30" />
-
           {isCollapsed ? (
-            <div className="relative flex items-center justify-center w-full">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="size-10 rounded-xl gradient-primary flex items-center justify-center elevation-2">
-                  <Image
-                    src="/logo.svg"
-                    alt="Open Notebook"
-                    width={24}
-                    height={24}
-                    className="transition-opacity group-hover:opacity-0"
-                  />
+            <>
+              <div className="flex w-full items-center justify-center pr-7">
+                <div className="size-10 shrink-0 rounded-xl gradient-primary flex items-center justify-center elevation-2">
+                  <Image src="/logo.svg" alt="Open Notebook" width={24} height={24} />
                 </div>
               </div>
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 onClick={toggleCollapse}
-                className="absolute text-sidebar-foreground hover:bg-sidebar-accent opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                className="absolute right-2 top-1/2 z-30 h-7 w-7 -translate-y-1/2 shrink-0 rounded-full border border-sidebar-border/70 bg-background/80 text-sidebar-foreground shadow-sm backdrop-blur hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                aria-label="Expand sidebar"
+                title="Expand sidebar"
               >
-                <Menu className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
-            </div>
+            </>
           ) : (
             <>
-              <div className="flex items-center gap-2.5">
+              <div className="flex min-w-0 items-center gap-2.5">
                 <div className="size-9 rounded-lg gradient-primary flex items-center justify-center elevation-1">
                   <Image src="/logo.svg" alt={t('common.appName')} width={20} height={20} />
                 </div>
-                <span className="text-base font-semibold text-sidebar-foreground tracking-tight">
+                <span className="truncate text-base font-semibold text-sidebar-foreground tracking-tight">
                   {t('common.appName')}
                 </span>
               </div>
@@ -157,8 +184,10 @@ export function AppSidebar() {
                 variant="ghost"
                 size="sm"
                 onClick={toggleCollapse}
-                className="text-sidebar-foreground hover:bg-sidebar-accent"
+                className="relative z-20 shrink-0 rounded-full border border-sidebar-border/70 text-sidebar-foreground hover:bg-sidebar-accent"
                 data-testid="sidebar-toggle"
+                aria-label="Collapse sidebar"
+                title="Collapse sidebar"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -166,18 +195,14 @@ export function AppSidebar() {
           )}
         </div>
 
-        <nav
+        <div
           className={cn(
-            'flex-1 space-y-1 py-4',
-            isCollapsed ? 'px-2' : 'px-3'
+            'flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 app-sidebar-scroll overscroll-contain',
+            isCollapsed ? 'px-2 pr-1' : 'px-3 pr-2'
           )}
+          style={{ scrollbarGutter: 'stable both-edges', WebkitOverflowScrolling: 'touch' }}
         >
-          <div
-            className={cn(
-              'mb-4',
-              isCollapsed ? 'px-0' : 'px-3'
-            )}
-          >
+          <div className={cn('mb-4', isCollapsed ? 'px-0' : 'px-3')}>
             <DropdownMenu open={createMenuOpen} onOpenChange={setCreateMenuOpen}>
               {isCollapsed ? (
                 <Tooltip>
@@ -187,14 +212,14 @@ export function AppSidebar() {
                         onClick={() => setCreateMenuOpen(true)}
                         variant="default"
                         size="sm"
-                        className="w-full justify-center px-2 bg-primary hover:bg-primary/90 text-primary-foreground border-0"
+                        className="w-full justify-center px-2 bg-primary hover:bg-primary/90 text-primary-foreground border-0 rounded-xl"
                         aria-label={t('common.create')}
                       >
                         <Plus className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                   </TooltipTrigger>
-                   <TooltipContent side="right">{t('common.create')}</TooltipContent>
+                  <TooltipContent side="right">{t('common.create')}</TooltipContent>
                 </Tooltip>
               ) : (
                 <DropdownMenuTrigger asChild>
@@ -202,8 +227,8 @@ export function AppSidebar() {
                     onClick={() => setCreateMenuOpen(true)}
                     variant="gradient"
                     size="sm"
-                    className="w-full justify-start text-primary-foreground border-0 elevation-2 hover:elevation-3"
-                   >
+                    className="w-full justify-start text-primary-foreground border-0 elevation-2 hover:elevation-3 rounded-xl"
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     {t('common.create')}
                   </Button>
@@ -222,7 +247,7 @@ export function AppSidebar() {
                   }}
                   className="gap-2"
                 >
-                   <FileText className="h-4 w-4" />
+                  <FileText className="h-4 w-4" />
                   {t('common.source')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -232,7 +257,7 @@ export function AppSidebar() {
                   }}
                   className="gap-2"
                 >
-                   <Book className="h-4 w-4" />
+                  <Book className="h-4 w-4" />
                   {t('common.notebook')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -242,7 +267,7 @@ export function AppSidebar() {
                   }}
                   className="gap-2"
                 >
-                   <Mic className="h-4 w-4" />
+                  <Mic className="h-4 w-4" />
                   {t('common.podcast')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -251,9 +276,7 @@ export function AppSidebar() {
 
           {navigation.map((section, index) => (
             <div key={section.title}>
-              {index > 0 && (
-                <Separator className="my-3" />
-              )}
+              {index > 0 && <Separator className="my-3" />}
               <div className="space-y-1">
                 {!isCollapsed && (
                   <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/60">
@@ -267,7 +290,7 @@ export function AppSidebar() {
                     <Button
                       variant={isActive ? 'secondary' : 'ghost'}
                       className={cn(
-                        'w-full gap-3 text-sidebar-foreground sidebar-menu-item',
+                        'w-full gap-3 text-sidebar-foreground sidebar-menu-item rounded-xl',
                         isActive && 'is-active bg-sidebar-accent text-sidebar-accent-foreground font-medium',
                         isCollapsed ? 'justify-center px-2' : 'justify-start'
                       )}
@@ -281,9 +304,7 @@ export function AppSidebar() {
                     return (
                       <Tooltip key={item.name}>
                         <TooltipTrigger asChild>
-                          <Link href={item.href}>
-                            {button}
-                          </Link>
+                          <Link href={item.href}>{button}</Link>
                         </TooltipTrigger>
                         <TooltipContent side="right">{item.name}</TooltipContent>
                       </Tooltip>
@@ -299,90 +320,84 @@ export function AppSidebar() {
               </div>
             </div>
           ))}
-        </nav>
 
-        <div
-          className={cn(
-            'border-t border-sidebar-border p-3 space-y-2',
-            isCollapsed && 'px-2'
-          )}
-        >
-          {/* Command Palette hint */}
-          {!isCollapsed && (
-            <div className="px-3 py-1.5 text-xs text-sidebar-foreground/60">
-              <div className="flex items-center justify-between">
-                 <span className="flex items-center gap-1.5">
-                  <Command className="h-3 w-3" />
-                  {t('common.quickActions')}
-                </span>
-                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-                  {isMac ? <span className="text-xs">⌘</span> : <span>Ctrl+</span>}K
-                </kbd>
+          <div className="border-t border-sidebar-border/60 mt-4 pt-4 space-y-2">
+            {!isCollapsed && (
+              <div className="px-3 py-1.5 text-xs text-sidebar-foreground/60">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Command className="h-3 w-3" />
+                    {t('common.quickActions')}
+                  </span>
+                  <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                    {isMac ? <span className="text-xs">⌘</span> : <span>Ctrl+</span>}K
+                  </kbd>
+                </div>
+                <p className="mt-1 text-[10px] text-sidebar-foreground/40">
+                  {t('common.quickActionsDesc')}
+                </p>
               </div>
-               <p className="mt-1 text-[10px] text-sidebar-foreground/40">
-                {t('common.quickActionsDesc')}
-              </p>
-            </div>
-          )}
-
-           <div
-            className={cn(
-              'flex flex-col gap-2',
-              isCollapsed ? 'items-center' : 'items-stretch'
             )}
-          >
+
+            <div
+              className={cn(
+                'flex flex-col gap-2',
+                isCollapsed ? 'items-center' : 'items-stretch'
+              )}
+            >
+              {isCollapsed ? (
+                <>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <ThemeToggle iconOnly />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">{t('common.theme')}</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <LanguageToggle iconOnly />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">{t('common.language')}</TooltipContent>
+                  </Tooltip>
+                </>
+              ) : (
+                <>
+                  <ThemeToggle />
+                  <LanguageToggle />
+                </>
+              )}
+            </div>
+
             {isCollapsed ? (
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <ThemeToggle iconOnly />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">{t('common.theme')}</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <LanguageToggle iconOnly />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">{t('common.language')}</TooltipContent>
-                </Tooltip>
-              </>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-center sidebar-menu-item rounded-xl"
+                    onClick={logout}
+                    aria-label={t('common.signOut')}
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">{t('common.signOut')}</TooltipContent>
+              </Tooltip>
             ) : (
-              <>
-                <ThemeToggle />
-                <LanguageToggle />
-              </>
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-3 sidebar-menu-item rounded-xl"
+                onClick={logout}
+                aria-label={t('common.signOut')}
+              >
+                <LogOut className="h-4 w-4" />
+                {t('common.signOut')}
+              </Button>
             )}
           </div>
-
-          {isCollapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-center sidebar-menu-item"
-                  onClick={logout}
-                  aria-label={t('common.signOut')}
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-               <TooltipContent side="right">{t('common.signOut')}</TooltipContent>
-            </Tooltip>
-          ) : (
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-3 sidebar-menu-item"
-              onClick={logout}
-              aria-label={t('common.signOut')}
-             >
-              <LogOut className="h-4 w-4" />
-              {t('common.signOut')}
-            </Button>
-          )}
         </div>
       </div>
     </TooltipProvider>

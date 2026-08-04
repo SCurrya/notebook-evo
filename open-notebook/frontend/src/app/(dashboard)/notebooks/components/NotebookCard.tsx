@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import type { MouseEvent } from 'react'
 import { NotebookResponse } from '@/lib/types/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,7 @@ import { NotebookDeleteDialog } from './NotebookDeleteDialog'
 import { useState } from 'react'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import { getDateLocale } from '@/lib/utils/date-locale'
+import { notebookDetailHref } from '@/lib/routes'
 interface NotebookCardProps {
   notebook: NotebookResponse
 }
@@ -25,10 +26,10 @@ interface NotebookCardProps {
 export function NotebookCard({ notebook }: NotebookCardProps) {
   const { t, language } = useTranslation()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const router = useRouter()
   const updateNotebook = useUpdateNotebook()
+  const detailHref = notebookDetailHref(notebook.id)
 
-  const handleArchiveToggle = (e: React.MouseEvent) => {
+  const handleArchiveToggle = (e: MouseEvent) => {
     e.stopPropagation()
     updateNotebook.mutate({
       id: notebook.id,
@@ -36,21 +37,22 @@ export function NotebookCard({ notebook }: NotebookCardProps) {
     })
   }
 
-  const handleCardClick = () => {
-    router.push(`/notebooks/${encodeURIComponent(notebook.id)}`)
-  }
-
   return (
     <>
       <Card
         className="group card-hover relative overflow-hidden"
-        onClick={handleCardClick}
         style={{ cursor: 'pointer' }}
       >
+          <a
+            href={detailHref}
+            aria-label={`Open notebook: ${notebook.name}`}
+            className="absolute inset-0 z-10 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          />
+
           {/* 顶部渐变装饰线 */}
           <div className="absolute top-0 left-0 right-0 h-1 gradient-primary opacity-0 group-hover:opacity-100 transition-opacity duration-normal" />
 
-          <CardHeader className="pb-3">
+          <CardHeader className="relative z-20 pb-3 pointer-events-none">
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
                 <CardTitle className="text-base truncate group-hover:text-primary transition-colors">
@@ -68,7 +70,7 @@ export function NotebookCard({ notebook }: NotebookCardProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <MoreHorizontal className="h-4 w-4" />
@@ -103,7 +105,7 @@ export function NotebookCard({ notebook }: NotebookCardProps) {
             </div>
           </CardHeader>
 
-          <CardContent>
+          <CardContent className="relative z-20 pointer-events-none">
             <CardDescription className="line-clamp-2 text-sm">
               {notebook.description || t('chat.noDescription')}
             </CardDescription>

@@ -29,6 +29,30 @@ export interface SearchResponse {
   search_type: string
 }
 
+// 语义搜索类型
+export interface SemanticSearchRequest {
+  query: string
+  notebook_id?: string
+  limit?: number
+  minimum_score?: number
+}
+
+export interface SemanticSearchResultItem {
+  id: string
+  title: string
+  parent_id: string
+  relevance_score: number
+  content_preview?: string | null
+  result_type?: string | null
+}
+
+export interface SemanticSearchResponse {
+  results: SemanticSearchResultItem[]
+  total_count: number
+  query: string
+  notebook_id?: string | null
+}
+
 // Ask types
 export interface AskRequest {
   question: string

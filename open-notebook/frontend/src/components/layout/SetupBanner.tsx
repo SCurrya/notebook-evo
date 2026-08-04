@@ -32,8 +32,8 @@ export function SetupBanner() {
 
   if (!encryptionReady) {
     return (
-      <div className="px-4 pt-3">
-        <Alert className="border-red-500/50 bg-red-50 dark:bg-red-950/20">
+    <div className="px-4 pt-3">
+      <Alert className="research-panel border-red-500/40 bg-red-50/70 dark:bg-red-950/18">
           <ShieldAlert className="h-4 w-4 text-red-600 dark:text-red-400" />
           <AlertTitle className="text-red-800 dark:text-red-200">
             {t('setupBanner.encryptionRequired')}
@@ -57,7 +57,7 @@ export function SetupBanner() {
 
   return (
     <div className="px-4 pt-3">
-      <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+      <Alert className="research-panel border-amber-500/40 bg-amber-50/70 dark:bg-amber-950/18">
         <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
         <AlertTitle className="text-amber-800 dark:text-amber-200">
           {t('setupBanner.migrationAvailable')}

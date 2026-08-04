@@ -24,7 +24,7 @@ export default function SettingsPage() {
               variant="outline"
               size="icon"
               onClick={() => refetch()}
-              aria-label="Refresh"
+              aria-label="刷新"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>

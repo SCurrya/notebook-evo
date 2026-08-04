@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -44,6 +45,47 @@ class SearchResponse(BaseModel):
     results: List[Dict[str, Any]] = Field(..., description="Search results")
     total_count: int = Field(..., description="Total number of results")
     search_type: str = Field(..., description="Type of search performed")
+
+
+class SemanticSearchRequest(BaseModel):
+    """语义搜索请求模型。"""
+
+    query: str = Field(..., description="语义搜索查询文本", min_length=1)
+    notebook_id: Optional[str] = Field(
+        None, description="可选的笔记本 ID，用于限定搜索范围"
+    )
+    limit: int = Field(10, description="返回结果数量上限", ge=1, le=100)
+    minimum_score: float = Field(
+        0.2, description="最低相关性分数阈值", ge=0, le=1
+    )
+
+
+class SemanticSearchResultItem(BaseModel):
+    """单条语义搜索结果项，含相关性分数。"""
+
+    id: str = Field(..., description="结果记录 ID")
+    title: str = Field("", description="结果标题")
+    parent_id: str = Field("", description="父级记录 ID（source:id / note:id）")
+    relevance_score: float = Field(
+        0.0, description="相关性分数（0-1，越高越相关）"
+    )
+    content_preview: Optional[str] = Field(
+        None, description="匹配内容预览片段"
+    )
+    result_type: Optional[str] = Field(
+        None, description="结果类型（source / note / source_insight）"
+    )
+
+
+class SemanticSearchResponse(BaseModel):
+    """语义搜索响应模型。"""
+
+    results: List[SemanticSearchResultItem] = Field(
+        default_factory=list, description="语义搜索结果列表"
+    )
+    total_count: int = Field(..., description="结果总数")
+    query: str = Field(..., description="原始查询文本")
+    notebook_id: Optional[str] = Field(None, description="限定的笔记本 ID")
 
 
 class AskRequest(BaseModel):
@@ -364,6 +406,32 @@ class SourceListResponse(BaseModel):
     command_id: Optional[str] = None
     status: Optional[str] = None
     processing_info: Optional[Dict[str, Any]] = None
+
+
+class PreprocessedChunkResponse(BaseModel):
+    content: str
+    title: Optional[str] = None
+    subtitle: Optional[str] = None
+    page_number: Optional[int] = None
+    source_file: Optional[str] = None
+    section: Optional[str] = None
+    chunk_index: int
+
+
+class PreprocessPreviewStats(BaseModel):
+    original_chars: int
+    cleaned_chars: int
+    chunk_count: int
+    removed_line_count: int
+
+
+class PreprocessPreviewResponse(BaseModel):
+    source_id: str
+    source_file: Optional[str] = None
+    original_text: str
+    cleaned_text: str
+    chunks: List[PreprocessedChunkResponse]
+    stats: PreprocessPreviewStats
 
 
 # Context API models
@@ -691,3 +759,228 @@ class NotebookDeleteResponse(BaseModel):
     unlinked_sources: int = Field(
         ..., description="Number of sources unlinked from notebook"
     )
+
+
+# Studio API models - Studio 模块相关模型
+class StudioTemplateCreate(BaseModel):
+    """创建 Studio 自定义模板的请求模型。"""
+
+    name: str = Field(..., description="模板名称")
+    description: str = Field("", description="模板描述")
+    prompt: str = Field(..., description="模板提示词")
+    output_format: str = Field("markdown", description="输出格式（markdown/json/text）")
+
+
+class StudioTemplateUpdate(BaseModel):
+    """更新 Studio 自定义模板的请求模型。"""
+
+    name: Optional[str] = Field(None, description="模板名称")
+    description: Optional[str] = Field(None, description="模板描述")
+    prompt: Optional[str] = Field(None, description="模板提示词")
+    output_format: Optional[str] = Field(None, description="输出格式")
+
+
+class StudioTemplateResponse(BaseModel):
+    """Studio 自定义模板的响应模型。"""
+
+    id: str
+    name: str
+    description: str
+    prompt: str
+    output_format: str
+    created_at: str
+    updated_at: str
+
+
+class ReportGenerateRequest(BaseModel):
+    """报告生成请求模型。"""
+
+    notebook_id: str = Field(..., description="笔记本 ID")
+    report_type: Literal["academic", "business", "brief"] = Field(
+        "academic", description="报告类型：学术/商业/简短摘要"
+    )
+
+
+class ReportGenerateResponse(BaseModel):
+    """报告生成响应模型。"""
+
+    report: str = Field(..., description="生成的报告内容（Markdown）")
+    report_type: str = Field(..., description="报告类型")
+    notebook_id: str = Field(..., description="笔记本 ID")
+
+
+class FAQGenerateRequest(BaseModel):
+    """FAQ 生成请求模型。"""
+
+    notebook_id: str = Field(..., description="笔记本 ID")
+    num_questions: int = Field(5, description="生成的问题数量", ge=1, le=20)
+
+
+class FAQItem(BaseModel):
+    """单条 FAQ 项。"""
+
+    question: str = Field(..., description="问题")
+    answer: str = Field(..., description="回答")
+
+
+class FAQGenerateResponse(BaseModel):
+    """FAQ 生成响应模型。"""
+
+    faqs: List[FAQItem] = Field(..., description="FAQ 列表")
+    notebook_id: str = Field(..., description="笔记本 ID")
+
+
+class TimelineGenerateRequest(BaseModel):
+    """时间线生成请求模型。"""
+
+    notebook_id: str = Field(..., description="笔记本 ID")
+
+
+class TimelineEvent(BaseModel):
+    """单条时间线事件。"""
+
+    date: str = Field(..., description="事件日期")
+    event: str = Field(..., description="事件描述")
+
+
+class TimelineGenerateResponse(BaseModel):
+    """时间线生成响应模型。"""
+
+    events: List[TimelineEvent] = Field(..., description="时间线事件列表（按时间排序）")
+    notebook_id: str = Field(..., description="笔记本 ID")
+
+
+# =============================================================================
+# Phase 3: 知识图谱系统 Pydantic 模型
+# =============================================================================
+class GraphEntityCreate(BaseModel):
+    """手动创建知识图谱实体的请求模型。"""
+
+    name: str = Field(..., description="实体名称")
+    type: str = Field(..., description="实体类型（person/organization/concept 等）")
+    properties: Optional[Dict[str, Any]] = Field(
+        default_factory=dict, description="实体附加属性"
+    )
+    notebook_id: Optional[str] = Field(None, description="所属笔记本 ID")
+
+
+class GraphEntityResponse(BaseModel):
+    """知识图谱实体响应模型。"""
+
+    id: str
+    name: str
+    type: str
+    properties: Dict[str, Any] = Field(default_factory=dict)
+    notebook_id: Optional[str] = None
+
+
+class GraphRelationCreate(BaseModel):
+    """手动创建知识图谱关系的请求模型。"""
+
+    source_id: str = Field(..., description="起始实体 ID")
+    target_id: str = Field(..., description="目标实体 ID")
+    type: str = Field(..., description="关系类型（如 works_for/located_in）")
+    properties: Optional[Dict[str, Any]] = Field(
+        default_factory=dict, description="关系附加属性"
+    )
+
+
+class GraphRelationResponse(BaseModel):
+    """知识图谱关系响应模型。"""
+
+    id: str
+    source_id: str
+    target_id: str
+    type: str
+    properties: Dict[str, Any] = Field(default_factory=dict)
+
+
+class GraphExtractRequest(BaseModel):
+    """从笔记本内容提取知识图谱的请求模型。"""
+
+    notebook_id: str = Field(..., description="要提取知识图谱的笔记本 ID")
+
+
+class GraphExtractResponse(BaseModel):
+    """知识图谱响应模型（包含实体和关系）。"""
+
+    entities: List[GraphEntityResponse] = Field(
+        default_factory=list, description="实体列表"
+    )
+    relations: List[GraphRelationResponse] = Field(
+        default_factory=list, description="关系列表"
+    )
+
+
+# =============================================================================
+# Phase 3: 协作共享平台 Pydantic 模型
+# =============================================================================
+class ShareLinkCreateRequest(BaseModel):
+    """创建共享链接的请求模型。"""
+
+    permissions: Literal["READ_ONLY", "COMMENT", "EDIT"] = Field(
+        "READ_ONLY", description="权限级别"
+    )
+    expires_at: Optional[datetime] = Field(
+        None, description="过期时间（None 表示永不过期）"
+    )
+    created_by: Optional[str] = Field(None, description="创建者标识")
+
+
+class ShareLinkResponse(BaseModel):
+    """共享链接响应模型。"""
+
+    id: str
+    notebook_id: str
+    token: str
+    permissions: str
+    expires_at: Optional[str] = None
+    created_by: Optional[str] = None
+    created: str = ""
+    updated: str = ""
+
+
+class SharedNotebookResponse(BaseModel):
+    """共享笔记本只读视图响应模型。"""
+
+    notebook_id: str
+    notebook_name: str
+    notebook_description: str = ""
+    permissions: str
+    sources: List[Dict[str, Any]] = Field(default_factory=list)
+    notes: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+# =============================================================================
+# Phase 3: API 开发生态 Pydantic 模型
+# =============================================================================
+class ApiKeyCreateRequest(BaseModel):
+    """创建 API Key 的请求模型。"""
+
+    name: str = Field(..., description="API Key 名称（便于识别）")
+    permissions: List[str] = Field(
+        default_factory=lambda: ["read"],
+        description="权限列表（如 read/write）",
+    )
+
+
+class ApiKeyResponse(BaseModel):
+    """API Key 响应模型（不含明文 key）。"""
+
+    id: str
+    name: str
+    permissions: List[str] = Field(default_factory=list)
+    created: str = ""
+    updated: str = ""
+    last_used_at: Optional[str] = None
+
+
+class ApiKeyCreateResponse(BaseModel):
+    """创建 API Key 的响应模型（包含明文 key，仅此一次）。"""
+
+    id: str
+    name: str
+    key: str = Field(..., description="明文 API Key（仅此一次返回）")
+    permissions: List[str] = Field(default_factory=list)
+    created: str = ""
+    message: str = "请妥善保存此 API Key，出于安全考虑不会再次显示"

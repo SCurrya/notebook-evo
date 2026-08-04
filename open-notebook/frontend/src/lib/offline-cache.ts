@@ -1,4 +1,5 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb'
+import type { SourceListResponse } from '@/lib/types/api'
 
 interface NotebookCache {
   id: string
@@ -17,9 +18,13 @@ interface OfflineDB extends DBSchema {
   }
   sources: {
     key: string
-    value: any
+    value: OfflineSourceCache
     indexes: { 'by-notebook': string }
   }
+}
+
+interface OfflineSourceCache extends Pick<SourceListResponse, 'id' | 'title' | 'asset' | 'embedded' | 'embedded_chunks' | 'insights_count' | 'created' | 'updated' | 'file_available' | 'command_id' | 'status' | 'processing_info'> {
+  notebooks: string[]
 }
 
 let dbPromise: Promise<IDBPDatabase<OfflineDB>> | null = null
@@ -38,7 +43,7 @@ function getDB(): Promise<IDBPDatabase<OfflineDB>> {
   return dbPromise
 }
 
-export async function cacheNotebooks(notebooks: any[]): Promise<void> {
+export async function cacheNotebooks(notebooks: NotebookCache[]): Promise<void> {
   try {
     const db = await getDB()
     const tx = db.transaction('notebooks', 'readwrite')
@@ -63,7 +68,7 @@ export async function getCachedNotebooks(): Promise<NotebookCache[]> {
   }
 }
 
-export async function cacheSources(notebookId: string, sources: any[]): Promise<void> {
+export async function cacheSources(notebookId: string, sources: OfflineSourceCache[]): Promise<void> {
   try {
     const db = await getDB()
     const tx = db.transaction('sources', 'readwrite')
@@ -76,7 +81,7 @@ export async function cacheSources(notebookId: string, sources: any[]): Promise<
   }
 }
 
-export async function getCachedSources(notebookId: string): Promise<any[]> {
+export async function getCachedSources(notebookId: string): Promise<OfflineSourceCache[]> {
   try {
     const db = await getDB()
     return await db.getAllFromIndex('sources', 'by-notebook', notebookId)
@@ -86,7 +91,10 @@ export async function getCachedSources(notebookId: string): Promise<any[]> {
   }
 }
 
-export function isOfflineError(error: any): boolean {
-  return error?.message?.startsWith('OFFLINE:') ||
-         error?.message?.includes('Could not reach any API endpoint')
+export function isOfflineError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const message = 'message' in error ? (error as { message?: unknown }).message : undefined
+  if (typeof message !== 'string') return false
+  return message.startsWith('OFFLINE:') ||
+         message.includes('Could not reach any API endpoint')
 }

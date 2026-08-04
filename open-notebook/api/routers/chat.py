@@ -14,6 +14,7 @@ from open_notebook.exceptions import (
 )
 from open_notebook.graphs.chat import graph as chat_graph
 from open_notebook.utils.graph_utils import get_session_message_count
+from open_notebook.utils.logger import Operation, Result, get_logger
 
 router = APIRouter()
 
@@ -96,6 +97,8 @@ class SuccessResponse(BaseModel):
 @router.get("/chat/sessions", response_model=List[ChatSessionResponse])
 async def get_sessions(notebook_id: str = Query(..., description="Notebook ID")):
     """Get all chat sessions for a notebook."""
+    log = get_logger("chat_api", Operation.READ, f"notebook_id={notebook_id}")
+    log.debug("-> get_sessions()")
     try:
         # Get notebook to verify it exists
         notebook = await Notebook.get(notebook_id)
@@ -124,11 +127,15 @@ async def get_sessions(notebook_id: str = Query(..., description="Notebook ID"))
                 )
             )
 
+        log.bind(result=Result.SUCCESS).info(f"<- get_sessions() count={len(results)}")
         return results
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Notebook not found")
     except Exception as e:
         logger.error(f"Error fetching chat sessions: {str(e)}")
+        get_logger("chat_api", Operation.READ, f"notebook_id={notebook_id}", Result.FAILURE).error(
+            f"get_sessions() failed: {e}"
+        )
         raise HTTPException(
             status_code=500, detail=f"Error fetching chat sessions: {str(e)}"
         )
@@ -137,6 +144,8 @@ async def get_sessions(notebook_id: str = Query(..., description="Notebook ID"))
 @router.post("/chat/sessions", response_model=ChatSessionResponse)
 async def create_session(request: CreateSessionRequest):
     """Create a new chat session."""
+    log = get_logger("chat_api", Operation.CREATE, f"notebook_id={request.notebook_id}")
+    log.debug("-> create_session()")
     try:
         # Verify notebook exists
         notebook = await Notebook.get(request.notebook_id)
@@ -154,6 +163,7 @@ async def create_session(request: CreateSessionRequest):
         # Relate session to notebook
         await session.relate_to_notebook(request.notebook_id)
 
+        log.bind(result=Result.SUCCESS).info(f"<- create_session() id={session.id}")
         return ChatSessionResponse(
             id=session.id or "",
             title=session.title or "",
@@ -306,6 +316,8 @@ async def update_session(session_id: str, request: UpdateSessionRequest):
 @router.delete("/chat/sessions/{session_id}", response_model=SuccessResponse)
 async def delete_session(session_id: str):
     """Delete a chat session."""
+    log = get_logger("chat_api", Operation.DELETE, f"session_id={session_id}")
+    log.debug("-> delete_session()")
     try:
         # Ensure session_id has proper table prefix
         full_session_id = (
@@ -319,17 +331,23 @@ async def delete_session(session_id: str):
 
         await session.delete()
 
+        log.bind(result=Result.SUCCESS).info(f"<- delete_session() ok")
         return SuccessResponse(success=True, message="Session deleted successfully")
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Session not found")
     except Exception as e:
         logger.error(f"Error deleting session: {str(e)}")
+        get_logger("chat_api", Operation.DELETE, f"session_id={session_id}", Result.FAILURE).error(
+            f"delete_session() failed: {e}"
+        )
         raise HTTPException(status_code=500, detail=f"Error deleting session: {str(e)}")
 
 
 @router.post("/chat/execute", response_model=ExecuteChatResponse)
 async def execute_chat(request: ExecuteChatRequest):
     """Execute a chat request and get AI response."""
+    log = get_logger("chat_api", Operation.CHAT, f"session_id={request.session_id}")
+    log.debug("-> execute_chat()")
     try:
         # Verify session exists
         # Ensure session_id has proper table prefix
@@ -414,6 +432,9 @@ async def execute_chat(request: ExecuteChatRequest):
             f"  Session ID: {request.session_id}\n"
             f"  Model override: {request.model_override}\n"
             f"  Traceback:\n{traceback.format_exc()}"
+        )
+        get_logger("chat_api", Operation.CHAT, f"session_id={request.session_id}", Result.FAILURE).error(
+            f"execute_chat() failed: {type(e).__name__}: {e}"
         )
         raise HTTPException(status_code=500, detail=f"Error executing chat: {str(e)}")
 

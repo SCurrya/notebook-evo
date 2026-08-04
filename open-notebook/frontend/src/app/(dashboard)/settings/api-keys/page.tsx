@@ -19,7 +19,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  RefreshCw,
   Key,
   ShieldAlert,
   AlertTriangle,
@@ -39,7 +38,7 @@ import {
   Bot,
 } from 'lucide-react'
 import { useTranslation } from '@/lib/hooks/use-translation'
-import { useModels, useDeleteModel, useModelDefaults, useUpdateModelDefaults, useAutoAssignDefaults, useTestModel } from '@/lib/hooks/use-models'
+import { useModels, useDeleteModel, useModelDefaults, useUpdateModelDefaults, useAutoAssignDefaults, useSyncAllModels, useTestModel } from '@/lib/hooks/use-models'
 import {
   useCredentials,
   useCredential,
@@ -51,7 +50,6 @@ import {
   useTestCredential,
   useDiscoverModels,
   useRegisterModels,
-  useMigrateFromEnv,
 } from '@/lib/hooks/use-credentials'
 import { Credential, CreateCredentialRequest, UpdateCredentialRequest, DiscoveredModel } from '@/lib/api/credentials'
 import { Model, ModelDefaults } from '@/lib/types/models'
@@ -68,6 +66,7 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   groq: 'Groq',
   mistral: 'Mistral AI',
   deepseek: 'DeepSeek',
+  sensenova: 'SenseNova',
   xai: 'xAI (Grok)',
   openrouter: 'OpenRouter',
   voyage: 'Voyage AI',
@@ -83,8 +82,8 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 
 // All providers in display order
 const ALL_PROVIDERS = [
-  'openai', 'anthropic', 'google', 'groq', 'mistral', 'deepseek',
-  'xai', 'openrouter', 'dashscope', 'minimax', 'voyage', 'elevenlabs', 'deepgram', 'ollama',
+  'sensenova', 'openrouter', 'openai', 'anthropic', 'google', 'groq', 'mistral', 'deepseek',
+  'xai', 'dashscope', 'minimax', 'voyage', 'elevenlabs', 'deepgram', 'ollama',
   'azure', 'vertex', 'openai_compatible',
 ]
 
@@ -96,8 +95,9 @@ const PROVIDER_MODALITIES: Record<string, ModelType[]> = {
   groq: ['language', 'speech_to_text'],
   mistral: ['language', 'embedding', 'speech_to_text', 'text_to_speech'],
   deepseek: ['language'],
+  sensenova: ['language', 'embedding'],
   xai: ['language', 'text_to_speech'],
-  openrouter: ['language', 'embedding'],
+  openrouter: ['language', 'embedding', 'text_to_speech', 'speech_to_text'],
   voyage: ['embedding'],
   elevenlabs: ['text_to_speech', 'speech_to_text'],
   deepgram: ['text_to_speech'],
@@ -117,6 +117,7 @@ const PROVIDER_DOCS: Record<string, string> = {
   groq: 'https://console.groq.com/keys',
   mistral: 'https://console.mistral.ai/api-keys/',
   deepseek: 'https://platform.deepseek.com/api_keys',
+  sensenova: 'https://platform.sensenova.cn/',
   xai: 'https://console.x.ai/',
   openrouter: 'https://openrouter.ai/keys',
   voyage: 'https://dash.voyageai.com/api-keys',
@@ -351,7 +352,7 @@ function CredentialFormDialog({
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
                   tabIndex={-1}
                 >
-                  {showApiKey ? 'Hide' : 'Show'}
+                  {showApiKey ? '隐藏' : '显示'}
                 </button>
               </div>
               {isEditing && <p className="text-xs text-muted-foreground">{t('apiKeys.apiKeyEditHint')}</p>}
@@ -1202,26 +1203,26 @@ function DefaultModelSelectors({
         )}
 
         {/* Primary models: Chat, Embedding, TTS, STT */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {primaryConfigs.map(config => {
             const available = getModelsForType(config.modelType)
             const currentValue = watch(config.key) || undefined
             const isValid = currentValue && available.some(m => m.id === currentValue)
 
             return (
-              <div key={config.key} className="space-y-1">
-                <Label htmlFor={config.id} className="text-xs">
+              <div key={config.key} className="min-w-0 space-y-1.5">
+                <Label htmlFor={config.id} className="block text-xs leading-none">
                   {config.label}
                   {config.required && <span className="text-destructive ml-0.5">*</span>}
                 </Label>
-                <div className="flex gap-1">
+                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
                   <Select
                     value={currentValue || ""}
                     onValueChange={(v) => handleChange(config.key, v)}
                   >
                     <SelectTrigger
                       id={config.id}
-                      className={`h-8 text-xs ${config.required && !isValid && available.length > 0 ? 'border-destructive' : ''}`}
+                      className={`h-9 w-full min-w-0 text-xs sm:w-60 ${config.required && !isValid && available.length > 0 ? 'border-destructive' : ''}`}
                     >
                       <SelectValue placeholder={
                         config.required && !isValid && available.length > 0
@@ -1241,7 +1242,7 @@ function DefaultModelSelectors({
                     </SelectContent>
                   </Select>
                   {!config.required && currentValue && (
-                    <Button variant="ghost" size="icon" onClick={() => handleChange(config.key, "")} className="h-8 w-8 shrink-0">
+                    <Button variant="ghost" size="icon" onClick={() => handleChange(config.key, "")} className="h-9 w-9 shrink-0">
                       <X className="h-3 w-3" />
                     </Button>
                   )}
@@ -1254,26 +1255,26 @@ function DefaultModelSelectors({
         {/* Advanced models: Transformation, Tools, Large Context */}
         <div className="border-t pt-3">
           <p className="text-xs text-muted-foreground mb-3">{t('navigation.advanced')}</p>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {advancedConfigs.map(config => {
                 const available = getModelsForType(config.modelType)
                 const currentValue = watch(config.key) || undefined
                 const isValid = currentValue && available.some(m => m.id === currentValue)
 
                 return (
-                  <div key={config.key} className="space-y-1">
-                    <Label htmlFor={config.id} className="text-xs">
+                  <div key={config.key} className="min-w-0 space-y-1.5">
+                    <Label htmlFor={config.id} className="block text-xs leading-none">
                       {config.label}
                       {config.required && <span className="text-destructive ml-0.5">*</span>}
                     </Label>
-                    <div className="flex gap-1">
+                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
                       <Select
                         value={currentValue || ""}
                         onValueChange={(v) => handleChange(config.key, v)}
                       >
                         <SelectTrigger
                           id={config.id}
-                          className={`h-8 text-xs ${config.required && !isValid && available.length > 0 ? 'border-destructive' : ''}`}
+                          className={`h-9 w-full min-w-0 text-xs sm:w-60 ${config.required && !isValid && available.length > 0 ? 'border-destructive' : ''}`}
                         >
                           <SelectValue placeholder={
                             config.required && !isValid && available.length > 0
@@ -1293,7 +1294,7 @@ function DefaultModelSelectors({
                         </SelectContent>
                       </Select>
                       {!config.required && currentValue && (
-                        <Button variant="ghost" size="icon" onClick={() => handleChange(config.key, "")} className="h-8 w-8 shrink-0">
+                        <Button variant="ghost" size="icon" onClick={() => handleChange(config.key, "")} className="h-9 w-9 shrink-0">
                           <X className="h-3 w-3" />
                         </Button>
                       )}
@@ -1330,6 +1331,7 @@ export default function ApiKeysPage() {
   const { data: defaults, isLoading: defaultsLoading } = useModelDefaults()
   const { data: credentialStatus } = useCredentialStatus()
   const { data: envStatus } = useEnvStatus()
+  const syncAllModels = useSyncAllModels()
 
   const encryptionReady = credentialStatus?.encryption_configured ?? true
 
@@ -1384,14 +1386,37 @@ export default function ApiKeysPage() {
   return (
     <AppShell>
       <div className="flex-1 overflow-y-auto">
-        <div className="p-6 space-y-6">
+        <div className="page-container py-6 space-y-6">
           {/* Header */}
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Key className="h-6 w-6" />
-              {t('apiKeys.title')}
-            </h1>
-            <p className="text-muted-foreground mt-1">{t('apiKeys.description')}</p>
+          <div className="flex flex-col gap-3 rounded-[28px] border border-border/70 bg-background/80 p-5 shadow-[0_20px_50px_-35px_color-mix(in_oklch,var(--primary)_26%,transparent)] sm:flex-row sm:items-start sm:justify-between sm:p-6">
+            <div className="space-y-1.5">
+              <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                <span className="size-2 rounded-full bg-primary" />
+                Model Hub
+              </div>
+              <h1 className="flex items-center gap-2 text-2xl font-semibold sm:text-3xl">
+                <Key className="h-6 w-6" />
+                {t('apiKeys.title')}
+              </h1>
+              <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
+                {t('apiKeys.description')}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+              <Button
+                variant="outline"
+                onClick={() => syncAllModels.mutate()}
+                disabled={syncAllModels.isPending}
+                className="gap-2 rounded-full"
+              >
+                {syncAllModels.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Wand2 className="h-4 w-4" />
+                )}
+                {syncAllModels.isPending ? t('apiKeys.syncAndAssigning') : t('apiKeys.syncAndAssign')}
+              </Button>
+            </div>
           </div>
 
           {/* Encryption warning */}

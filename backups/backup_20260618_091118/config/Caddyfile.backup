@@ -1,0 +1,79 @@
+# Open Notebook 反向代理
+# 监听 0.0.0.0:8888 (API) 和 0.0.0.0:8889 (前端)
+# 配合 Tailscale 让手机访问 PC 上的 Open Notebook
+
+{
+    # 全局选项
+    admin off
+    auto_https off
+}
+
+# === Open Notebook API (5055) ===
+:8888 {
+    reverse_proxy 127.0.0.1:5055 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        transport http {
+            read_timeout 300s
+            write_timeout 300s
+        }
+    }
+
+    log {
+        output file E:\notebook\downloads\caddy\access-api.log {
+            roll_size 50mb
+            roll_keep 5
+        }
+    }
+}
+
+# === Open Notebook 前端 (静态导出 from out/) ===
+# 之前用 reverse_proxy 3000 dev server，会被 Next.js 16 跨源检查拦截（HMR 资源）
+# 改为直接 file_server 服务 build:mobile 产物
+:8889 {
+    root * E:\notebook\open-notebook\frontend\out
+    encode gzip zstd
+
+    @spa {
+        not file
+        not path /api/*
+        not path /health
+    }
+    handle @spa {
+        try_files {path} {path}.html {path}/index.html /index.html
+    }
+
+    # /health 代理到 API（供 APK API 发现机制检测）
+    handle /health {
+        reverse_proxy 127.0.0.1:5055 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    handle /api/* {
+        reverse_proxy 127.0.0.1:5055 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+            transport http {
+                read_timeout 300s
+                write_timeout 300s
+            }
+        }
+    }
+
+    file_server
+
+    log {
+        output file E:\notebook\downloads\caddy\access-web.log {
+            roll_size 50mb
+            roll_keep 5
+        }
+    }
+}

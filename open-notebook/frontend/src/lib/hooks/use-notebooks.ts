@@ -30,6 +30,8 @@ export function useCreateNotebook() {
     mutationFn: (data: CreateNotebookRequest) => notebooksApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notebooks })
+      queryClient.invalidateQueries({ queryKey: ['sources'] })
+      queryClient.invalidateQueries({ queryKey: ['notes'] })
       toast({
         title: t('common.success'),
         description: t('notebooks.createSuccess'),
@@ -56,6 +58,8 @@ export function useUpdateNotebook() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notebooks })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notebook(id) })
+      queryClient.invalidateQueries({ queryKey: ['sources'] })
+      queryClient.invalidateQueries({ queryKey: ['notes'] })
       toast({
         title: t('common.success'),
         description: t('notebooks.updateSuccess'),
@@ -94,8 +98,8 @@ export function useDeleteNotebook() {
     }) => notebooksApi.delete(id, deleteExclusiveSources),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.notebooks })
-      // Also invalidate sources since some may have been deleted
       queryClient.invalidateQueries({ queryKey: ['sources'] })
+      queryClient.invalidateQueries({ queryKey: ['notes'] })
       toast({
         title: t('common.success'),
         description: t('notebooks.deleteSuccess'),

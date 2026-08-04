@@ -47,15 +47,19 @@ export function TransformationPlayground({ transformations, selectedTransformati
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('transformations.playground')}</CardTitle>
-          <CardDescription>
+      <Card className="rounded-[28px] border-border/70 bg-background/80 shadow-none">
+        <CardHeader className="space-y-2">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            <span className="size-2 rounded-full bg-primary" />
+            {t('transformations.playground')}
+          </div>
+          <CardTitle className="text-2xl tracking-tight">{t('transformations.playground')}</CardTitle>
+          <CardDescription className="max-w-3xl text-sm leading-6">
             {t('transformations.desc')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <Label htmlFor="transformation">{t('navigation.transformation')}</Label>
               <Select name="transformation" value={selectedId} onValueChange={setSelectedId}>
@@ -102,6 +106,7 @@ export function TransformationPlayground({ transformations, selectedTransformati
               onClick={handleExecute}
               disabled={!canExecute}
               size="lg"
+              className="rounded-full px-8"
             >
               {executeTransformation.isPending ? (
                 <>
@@ -120,7 +125,7 @@ export function TransformationPlayground({ transformations, selectedTransformati
           {output && (
             <div className="space-y-2">
               <span className="text-sm font-medium leading-none">{t('transformations.outputLabel')}</span>
-              <Card>
+              <Card className="rounded-[28px] border-border/70 bg-background/80 shadow-none">
                 <ScrollArea className="h-[400px]">
                   <CardContent className="pt-6">
                     <div className="prose prose-sm max-w-none dark:prose-invert">

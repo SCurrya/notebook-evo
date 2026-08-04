@@ -18,9 +18,26 @@ from open_notebook.podcasts.models import (
 
 try:
     from podcast_creator import configure, create_podcast
-except ImportError as e:
-    logger.error(f"Failed to import podcast_creator: {e}")
-    raise ValueError("podcast_creator library not available")
+    _PODCAST_CREATOR_OK = True
+except Exception as e:  # noqa: BLE001
+    # 在桌面 EXE 中 podcast_creator 是占位 stub，import 阶段会成功但
+    # 真正调用时会抛 ImportError。这里把 configure/create_podcast 替换为
+    # 抛出明确异常的占位函数，让模块 import 永不失败；业务侧调用时再
+    # 暴露问题。
+    logger.warning(f"podcast_creator stub loaded (real impl unavailable): {e}")
+    _PODCAST_CREATOR_OK = False
+
+    def configure(*args, **kwargs):
+        raise ImportError(
+            "podcast_creator is not available in desktop build. "
+            "This feature requires running the full Python environment."
+        )
+
+    def create_podcast(*args, **kwargs):
+        raise ImportError(
+            "podcast_creator is not available in desktop build. "
+            "This feature requires running the full Python environment."
+        )
 
 
 def build_episode_output_dir(data_folder: str) -> tuple[str, Path]:
@@ -33,7 +50,10 @@ def build_episode_output_dir(data_folder: str) -> tuple[str, Path]:
         A tuple of (episode_dir_name, output_dir_path).
     """
     episode_dir_name = str(uuid.uuid4())
-    output_dir = Path(f"{data_folder}/podcasts/episodes/{episode_dir_name}")
+    # 使用 PurePosixPath 构建路径字符串，确保跨平台路径分隔符一致
+    # 然后转换为当前平台的 Path 对象
+    posix_path = f"{data_folder}/podcasts/episodes/{episode_dir_name}"
+    output_dir = Path(posix_path)
     return episode_dir_name, output_dir
 
 

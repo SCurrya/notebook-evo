@@ -1,4 +1,5 @@
 from typing import Optional
+import secrets
 
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -12,7 +13,7 @@ from open_notebook.utils.encryption import get_secret_from_env
 class PasswordAuthMiddleware(BaseHTTPMiddleware):
     """
     Middleware to check password authentication for all API requests.
-    Always active with default password if OPEN_NOTEBOOK_PASSWORD is not set.
+    Active when OPEN_NOTEBOOK_PASSWORD is set.
     Supports Docker secrets via OPEN_NOTEBOOK_PASSWORD_FILE.
     """
 
@@ -63,7 +64,7 @@ class PasswordAuthMiddleware(BaseHTTPMiddleware):
             )
 
         # Check password
-        if credentials != self.password:
+        if not secrets.compare_digest(credentials, self.password):
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Invalid password"},
@@ -103,8 +104,8 @@ def check_api_password(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Check password
-    if credentials.credentials != password:
+    # Check password using constant-time comparison
+    if not secrets.compare_digest(credentials.credentials, password):
         raise HTTPException(
             status_code=401,
             detail="Invalid password",

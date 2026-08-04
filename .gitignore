@@ -1,50 +1,107 @@
-# Build artifacts
+# ============ Notebook Evo .gitignore ============
+# 根仓库：仅跟踪 open-notebook 源码 + docs + scripts
+
+# === 构建产物 ===
 node_modules/
 .next/
 out/
 dist/
 build/
 *.tsbuildinfo
+frontend/out/
+frontend/.next/
 
-# Python
+# === Python ===
 __pycache__/
 *.pyc
 .venv/
 venv/
 *.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Android
+# === 环境与密钥 ===
+.env
+.env.local
+.env.*.local
+.env.bak
+
+# === 日志 ===
+*.log
+*.log.*
+logs/
+logs_api*.txt
+exe_*.log
+surreal_bg.log
+
+# === 数据与运行时 ===
+data/
+db/
+uploads/
+outputs/
+tmp/
+surreal_data/
+notebook_data/
+open-notebook-data/
+*.sqlite
+*.sqlite3
+
+# === 外部工具/独立项目（不入库） ===
+MoneyPrinterTurbo/
+claude-package/
+codex-skill-manager-wpf/
+open-notebook-backup-*/
+open-notebook-claude-package-*.zip
+downloads/
+releases/
+mobile-app/
+
+# === 大二进制产物（不入库） ===
+surreal.exe
+installer_output/
+*.exe
+*.zip
+*.mp4
+*.mp3
+
+# === Android/Capacitor ===
 android/app/build/
 android/.gradle/
 android/build/
 android/.idea/
 android/local.properties
 *.apk
-!mobile/app-debug.apk
 
-# Logs
-*.log
-logs/
-api_*.log
+# === 临时文件 ===
+_tmp_*/
+tmp/
+.history/
+.npm-cache/
+desktop_capture.png
+yes.txt
+sdk-install.txt
+license-output.txt
+post-source.py
+rename-notebook.py
+add-models.py
 
-# OS
+# === 测试临时脚本 ===
+test_e2e.py
+test_exe*.py
+test_final.py
+test_i18n.py
+test_pdf_upload.py
+
+# === OS / IDE ===
 .DS_Store
 Thumbs.db
 desktop.ini
-
-# Backups
-backups/
-
-# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# Trae spec workspace
 .trae/
 
-# Environment
-.env
-.env.local
-.env.*.local
+# === 嵌套 git ===
+open-notebook/.git/

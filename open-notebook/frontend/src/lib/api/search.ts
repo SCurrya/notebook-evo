@@ -1,10 +1,25 @@
 import apiClient from './client'
-import { SearchRequest, SearchResponse, AskRequest } from '@/lib/types/search'
+import {
+  SearchRequest,
+  SearchResponse,
+  AskRequest,
+  SemanticSearchRequest,
+  SemanticSearchResponse,
+} from '@/lib/types/search'
 
 export const searchApi = {
   // Standard search (non-streaming)
   search: async (params: SearchRequest) => {
     const response = await apiClient.post<SearchResponse>('/search', params)
+    return response.data
+  },
+
+  // 语义搜索：基于嵌入向量的相似度搜索，返回带相关性分数的结果
+  semanticSearch: async (params: SemanticSearchRequest) => {
+    const response = await apiClient.post<SemanticSearchResponse>(
+      '/search/semantic',
+      params
+    )
     return response.data
   },
 

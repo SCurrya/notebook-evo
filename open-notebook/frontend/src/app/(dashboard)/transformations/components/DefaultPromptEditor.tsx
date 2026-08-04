@@ -30,7 +30,7 @@ export function DefaultPromptEditor() {
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <Card>
+      <Card className="research-panel rounded-[24px]">
         <CollapsibleTrigger className="w-full">
           <CardHeader className="cursor-pointer">
             <div className="flex items-center justify-between">

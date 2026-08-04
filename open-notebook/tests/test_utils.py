@@ -173,6 +173,20 @@ class TestTokenUtilities:
             assert isinstance(count, int)
             assert count > 0
 
+    def test_token_count_unknown_encoding_fallback(self):
+        """Test fallback when bundled tiktoken cannot resolve o200k_base."""
+        from unittest.mock import patch
+
+        with patch(
+            "tiktoken.get_encoding",
+            side_effect=ValueError("Unknown encoding o200k_base"),
+        ):
+            text = "one two three four five"
+            count = token_count(text)
+
+            assert isinstance(count, int)
+            assert count > 0
+
 
 # ============================================================================
 # TEST SUITE 3: Version Utilities

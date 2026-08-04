@@ -71,6 +71,15 @@ export async function discoverApiUrl(): Promise<string | null> {
 
   if (discoveryPromise) return discoveryPromise
   discoveryPromise = (async () => {
+    // Priority 0: Current origin (same-origin deployment, e.g. EXE serving both frontend + API)
+    if (typeof window !== 'undefined') {
+      const origin = window.location.origin
+      if (await checkEndpoint(origin)) {
+        discoveredUrl = origin
+        return origin
+      }
+    }
+
     const candidates = getCandidateUrls()
     for (const url of candidates) {
       if (await checkEndpoint(url)) {
@@ -90,7 +99,7 @@ export function resetDiscovery(): void {
 
 export function isCapacitor(): boolean {
   return typeof window !== 'undefined' &&
-         (window as any).Capacitor?.isNativePlatform?.() === true
+         (window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.() === true
 }
 
 export function isMobileBuild(): boolean {

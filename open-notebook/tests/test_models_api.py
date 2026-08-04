@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from open_notebook.ai.model_assignment import auto_assign_default_models
 
 
 @pytest.fixture
@@ -389,3 +390,129 @@ class TestModelsProviderAvailability:
         # Should support only text_to_speech
         supported = data["supported_types"]["openai_compatible"]
         assert supported == ["text_to_speech"]
+
+
+class TestModelSyncAndAssignment:
+    """Test suite for model sync and auto-assignment flows."""
+
+    @patch("api.routers.models.sync_all_providers", new_callable=AsyncMock)
+    def test_sync_all_models_returns_aggregates(self, mock_sync_all, client):
+        """Sync-all should aggregate provider counts into a single response."""
+
+        mock_sync_all.return_value = {
+            "openai": (3, 2, 1),
+            "openrouter": (4, 1, 3),
+        }
+
+        response = client.post("/api/models/sync")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_discovered"] == 7
+        assert data["total_new"] == 3
+        assert data["results"]["openai"]["discovered"] == 3
+        assert data["results"]["openrouter"]["existing"] == 3
+
+    @pytest.mark.asyncio
+    @patch("open_notebook.ai.model_discovery.repo_query", new_callable=AsyncMock)
+    async def test_sync_provider_reclassifies_same_name_model_type(
+        self, mock_repo_query
+    ):
+        """Syncing a provider should correct a model type when the name already exists."""
+        from open_notebook.ai.model_discovery import sync_provider_models
+
+        mock_repo_query.return_value = [
+            {
+                "id": "model:openrouter-whisper",
+                "name": "openai/whisper-1",
+                "provider": "openrouter",
+                "type": "text_to_speech",
+            }
+        ]
+
+        with patch(
+            "open_notebook.ai.model_discovery.discover_provider_models",
+            new_callable=AsyncMock,
+        ) as mock_discover:
+            with patch("open_notebook.ai.model_discovery.Model", autospec=True) as mock_model_cls:
+                mock_discover.return_value = [
+                    type(
+                        "DM",
+                        (),
+                        {
+                            "name": "openai/whisper-1",
+                            "provider": "openrouter",
+                            "model_type": "speech_to_text",
+                            "description": None,
+                        },
+                    )()
+                ]
+                mock_instance = AsyncMock()
+                mock_instance.type = "text_to_speech"
+                mock_instance.save = AsyncMock()
+                mock_model_cls.return_value = mock_instance
+
+                discovered, new, existing = await sync_provider_models(
+                    "openrouter", auto_register=True
+                )
+
+        assert discovered == 1
+        assert new == 0
+        assert existing == 1
+        assert mock_instance.save.await_count == 1
+
+    @pytest.mark.asyncio
+    @patch("open_notebook.ai.model_assignment.repo_query", new_callable=AsyncMock)
+    @patch("open_notebook.ai.model_assignment.DefaultModels.get_instance", new_callable=AsyncMock)
+    async def test_auto_assign_default_models_picks_preferred_models(
+        self, mock_get_defaults, mock_repo_query
+    ):
+        """Auto assignment should pick preferred models and persist the defaults."""
+
+        fake_defaults = AsyncMock()
+        fake_defaults.default_chat_model = None
+        fake_defaults.default_transformation_model = None
+        fake_defaults.default_tools_model = None
+        fake_defaults.large_context_model = None
+        fake_defaults.default_embedding_model = None
+        fake_defaults.default_text_to_speech_model = None
+        fake_defaults.default_speech_to_text_model = None
+        fake_defaults.update = AsyncMock()
+        mock_get_defaults.return_value = fake_defaults
+
+        mock_repo_query.return_value = [
+            {
+                "id": "model:openai-chat",
+                "name": "gpt-4o",
+                "provider": "openai",
+                "type": "language",
+            },
+            {
+                "id": "model:openai-embed",
+                "name": "text-embedding-3-small",
+                "provider": "openai",
+                "type": "embedding",
+            },
+            {
+                "id": "model:openai-tts",
+                "name": "tts-1",
+                "provider": "openai",
+                "type": "text_to_speech",
+            },
+            {
+                "id": "model:openai-stt",
+                "name": "whisper-1",
+                "provider": "openai",
+                "type": "speech_to_text",
+            },
+        ]
+
+        result = await auto_assign_default_models()
+
+        assert result["assigned"]["default_chat_model"] == "model:openai-chat"
+        assert result["assigned"]["default_embedding_model"] == "model:openai-embed"
+        assert result["assigned"]["default_text_to_speech_model"] == "model:openai-tts"
+        assert result["assigned"]["default_speech_to_text_model"] == "model:openai-stt"
+        assert fake_defaults.default_chat_model == "model:openai-chat"
+        assert fake_defaults.default_embedding_model == "model:openai-embed"
+        fake_defaults.update.assert_awaited_once()

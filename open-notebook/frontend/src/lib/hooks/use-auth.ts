@@ -15,7 +15,10 @@ export function useAuth() {
     checkAuthRequired,
     error,
     hasHydrated,
-    authRequired
+    authRequired,
+    token,
+    lastAuthCheck,
+    isCheckingAuth
   } = useAuthStore()
 
   useEffect(() => {
@@ -60,7 +63,12 @@ export function useAuth() {
 
   return {
     isAuthenticated,
-    isLoading: isLoading || !hasHydrated, // Treat lack of hydration as loading
+    isLoading:
+      isLoading ||
+      !hasHydrated ||
+      authRequired === null ||
+      isCheckingAuth ||
+      (authRequired === true && !!token && !lastAuthCheck),
     error,
     login: handleLogin,
     logout: handleLogout

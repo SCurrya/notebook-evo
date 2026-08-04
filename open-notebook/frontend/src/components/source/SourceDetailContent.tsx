@@ -9,7 +9,7 @@ import { sourcesApi } from '@/lib/api/sources'
 import { insightsApi, SourceInsightResponse } from '@/lib/api/insights'
 import { transformationsApi } from '@/lib/api/transformations'
 import { embeddingApi } from '@/lib/api/embedding'
-import { SourceDetailResponse } from '@/lib/types/api'
+import { PreprocessPreviewResponse, SourceDetailResponse } from '@/lib/types/api'
 import { Transformation } from '@/lib/types/transformations'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { InlineEdit } from '@/components/common/InlineEdit'
@@ -98,6 +98,9 @@ export function SourceDetailContent({
   const [selectedInsight, setSelectedInsight] = useState<SourceInsightResponse | null>(null)
   const [insightToDelete, setInsightToDelete] = useState<string | null>(null)
   const [deletingInsight, setDeletingInsight] = useState(false)
+  const [preprocessPreview, setPreprocessPreview] = useState<PreprocessPreviewResponse | null>(null)
+  const [loadingPreprocessPreview, setLoadingPreprocessPreview] = useState(false)
+  const [preprocessPreviewError, setPreprocessPreviewError] = useState<string | null>(null)
 
   const fetchSource = useCallback(async () => {
     try {
@@ -139,6 +142,20 @@ export function SourceDetailContent({
       console.error('Failed to fetch transformations:', err)
     }
   }, [])
+
+  const fetchPreprocessPreview = useCallback(async () => {
+    try {
+      setLoadingPreprocessPreview(true)
+      setPreprocessPreviewError(null)
+      const data = await sourcesApi.preprocessPreview(sourceId)
+      setPreprocessPreview(data)
+    } catch (err) {
+      console.error('Failed to fetch preprocess preview:', err)
+      setPreprocessPreviewError(t('sources.preprocessPreviewFailed'))
+    } finally {
+      setLoadingPreprocessPreview(false)
+    }
+  }, [sourceId, t])
 
   useEffect(() => {
     if (sourceId) {
@@ -463,12 +480,21 @@ export function SourceDetailContent({
 
       {/* Tabs Content */}
       <div className="flex-1 overflow-y-auto px-2">
-        <Tabs defaultValue="content" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 sticky top-0 z-10">
+        <Tabs
+          defaultValue="content"
+          className="w-full"
+          onValueChange={(value) => {
+            if (value === 'preprocess' && !preprocessPreview && !loadingPreprocessPreview) {
+              void fetchPreprocessPreview()
+            }
+          }}
+        >
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 sticky top-0 z-10">
             <TabsTrigger value="content">{t('sources.content')}</TabsTrigger>
             <TabsTrigger value="insights">
               {t('common.insights')} {insights.length > 0 && `(${insights.length})`}
             </TabsTrigger>
+            <TabsTrigger value="preprocess">{t('sources.preprocessPreview')}</TabsTrigger>
             <TabsTrigger value="details">{t('sources.details')}</TabsTrigger>
           </TabsList>
 
@@ -652,6 +678,110 @@ export function SourceDetailContent({
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="preprocess" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between gap-3">
+                  <span>{t('sources.preprocessPreview')}</span>
+                  {preprocessPreview && (
+                    <Badge variant="secondary">
+                      {t('sources.chunkCount').replace('{count}', String(preprocessPreview.stats.chunk_count))}
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>
+                  {t('sources.preprocessPreviewDesc')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                {loadingPreprocessPreview ? (
+                  <div className="flex items-center justify-center py-10">
+                    <LoadingSpinner />
+                  </div>
+                ) : preprocessPreviewError ? (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>{t('common.error')}</AlertTitle>
+                    <AlertDescription>{preprocessPreviewError}</AlertDescription>
+                  </Alert>
+                ) : preprocessPreview ? (
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-4">
+                      <div className="rounded-lg border bg-muted/30 p-3">
+                        <p className="text-xs text-muted-foreground">{t('sources.originalChars')}</p>
+                        <p className="mt-1 text-lg font-semibold">{preprocessPreview.stats.original_chars}</p>
+                      </div>
+                      <div className="rounded-lg border bg-muted/30 p-3">
+                        <p className="text-xs text-muted-foreground">{t('sources.cleanedChars')}</p>
+                        <p className="mt-1 text-lg font-semibold">{preprocessPreview.stats.cleaned_chars}</p>
+                      </div>
+                      <div className="rounded-lg border bg-muted/30 p-3">
+                        <p className="text-xs text-muted-foreground">{t('sources.removedLines')}</p>
+                        <p className="mt-1 text-lg font-semibold">{preprocessPreview.stats.removed_line_count}</p>
+                      </div>
+                      <div className="rounded-lg border bg-muted/30 p-3">
+                        <p className="text-xs text-muted-foreground">{t('sources.finalChunks')}</p>
+                        <p className="mt-1 text-lg font-semibold">{preprocessPreview.stats.chunk_count}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      <PreviewTextPanel
+                        title={t('sources.originalText')}
+                        content={preprocessPreview.original_text}
+                      />
+                      <PreviewTextPanel
+                        title={t('sources.cleanedText')}
+                        content={preprocessPreview.cleaned_text}
+                      />
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-semibold">{t('sources.finalChunks')}</h3>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void fetchPreprocessPreview()}
+                        >
+                          {t('common.refresh')}
+                        </Button>
+                      </div>
+                      <div className="space-y-3">
+                        {preprocessPreview.chunks.map((chunk) => (
+                          <div key={chunk.chunk_index} className="rounded-lg border bg-background p-4">
+                            <div className="mb-3 flex flex-wrap items-center gap-2">
+                              <Badge variant="outline">
+                                #{chunk.chunk_index + 1}
+                              </Badge>
+                              {chunk.title && <Badge variant="secondary">{chunk.title}</Badge>}
+                              {chunk.subtitle && <Badge variant="secondary">{chunk.subtitle}</Badge>}
+                              {chunk.page_number && (
+                                <Badge variant="outline">
+                                  {t('sources.pageNumber').replace('{page}', String(chunk.page_number))}
+                                </Badge>
+                              )}
+                            </div>
+                            <pre className="max-h-56 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-xs leading-6">
+                              {chunk.content}
+                            </pre>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+                    <p className="text-sm text-muted-foreground">{t('sources.preprocessPreviewEmpty')}</p>
+                    <Button onClick={() => void fetchPreprocessPreview()}>
+                      {t('sources.loadPreprocessPreview')}
+                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -855,6 +985,19 @@ export function SourceDetailContent({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  )
+}
+
+function PreviewTextPanel({ title, content }: { title: string; content: string }) {
+  return (
+    <div className="rounded-lg border bg-background">
+      <div className="border-b px-4 py-3">
+        <h3 className="text-sm font-semibold">{title}</h3>
+      </div>
+      <pre className="max-h-96 overflow-auto whitespace-pre-wrap p-4 text-xs leading-6 text-muted-foreground">
+        {content}
+      </pre>
     </div>
   )
 }

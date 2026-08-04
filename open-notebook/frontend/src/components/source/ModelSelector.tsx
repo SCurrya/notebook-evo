@@ -61,14 +61,15 @@ export function ModelSelector({
   }, [defaults?.default_chat_model, languageModels])
 
   const currentModelName = useMemo(() => {
+    const defaultLabel = t('common.default')
     if (currentModel) {
       return languageModels.find(model => model.id === currentModel)?.name || currentModel
     }
     if (defaultModel) {
       return defaultModel.name
     }
-    return t('common.default')
-  }, [currentModel, languageModels, defaultModel, t('common.default')])
+    return defaultLabel
+  }, [currentModel, languageModels, defaultModel, t])
 
   const handleSave = () => {
     onModelChange(selectedModel === 'default' ? undefined : selectedModel)

@@ -6,6 +6,7 @@ instead of raw episode names, preventing filesystem issues with
 spaces and special characters (GitHub issue #663).
 """
 
+import sys
 import uuid
 from pathlib import PurePosixPath
 
@@ -22,7 +23,12 @@ class TestBuildEpisodeOutputDir:
 
     def test_path_structure(self):
         dir_name, output_dir = build_episode_output_dir("/data")
-        assert str(output_dir) == f"/data/podcasts/episodes/{dir_name}"
+        # 跨平台兼容：Windows 使用反斜杠，POSIX 使用正斜杠
+        expected = f"/data/podcasts/episodes/{dir_name}"
+        actual = str(output_dir)
+        if sys.platform == "win32":
+            expected = expected.replace("/", "\\")
+        assert actual == expected
 
     def test_no_collision_between_calls(self):
         dir1, _ = build_episode_output_dir("/data")
@@ -57,7 +63,8 @@ class TestBuildEpisodeOutputDir:
 
     def test_path_works_on_posix(self):
         dir_name, output_dir = build_episode_output_dir("/data")
-        posix = PurePosixPath(str(output_dir))
+        # 跨平台兼容：将路径转换为 POSIX 格式进行验证
+        posix = PurePosixPath(str(output_dir).replace("\\", "/"))
         assert posix.parts == ("/", "data", "podcasts", "episodes", dir_name)
 
     def test_directory_can_be_created(self, tmp_path):
