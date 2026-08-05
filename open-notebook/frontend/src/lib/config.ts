@@ -167,33 +167,41 @@ async function fetchConfig(): Promise<AppConfig> {
                 ', smart-default=' + (!runtimeApiUrl && !envApiUrl ? '✅' : '❌'))
   }
 
-  try {
-    if (isDev) console.log('🔧 [Config] Fetching backend config from:', `${baseUrl}/api/config`)
-    // Try to fetch runtime config from backend API
-    const response = await fetch(`${baseUrl}/api/config`, {
-      cache: 'no-store',
-    })
+  // Try both endpoint conventions (/api/config and /config) to support
+  // both current backend (path is /api/config) and older/alternative builds
+  // (path is /config).
+  const configEndpoints = [
+    `${baseUrl}/api/config`,
+    `${baseUrl}/config`,
+  ]
 
-    if (response.ok) {
-      const data: BackendConfigResponse = await response.json()
-      config = {
-        apiUrl: baseUrl, // Use baseUrl from runtime-config (Python no longer returns this)
-        version: data.version || 'unknown',
-        buildTime: BUILD_TIME,
-        latestVersion: data.latestVersion || null,
-        hasUpdate: data.hasUpdate || false,
-        dbStatus: data.dbStatus, // Can be undefined for old backends
+  let lastError: unknown = null
+  for (const endpoint of configEndpoints) {
+    try {
+      if (isDev) console.log('🔧 [Config] Fetching backend config from:', endpoint)
+      const response = await fetch(endpoint, {
+        cache: 'no-store',
+      })
+
+      if (response.ok) {
+        const data: BackendConfigResponse = await response.json()
+        config = {
+          apiUrl: baseUrl,
+          version: data.version || 'unknown',
+          buildTime: BUILD_TIME,
+          latestVersion: data.latestVersion || null,
+          hasUpdate: data.hasUpdate || false,
+          dbStatus: data.dbStatus,
+        }
+        if (isDev) console.log('✅ [Config] Successfully loaded API config:', config)
+        return config
       }
-      if (isDev) console.log('✅ [Config] Successfully loaded API config:', config)
-      return config
-    } else {
-      // Don't log error here - ConnectionGuard will display it
-      throw new Error(`API config endpoint returned status ${response.status}`)
+      lastError = new Error(`API config endpoint returned status ${response.status}`)
+    } catch (error) {
+      lastError = error
     }
-  } catch (error) {
-    // Don't log error here - ConnectionGuard will display it with proper UI
-    throw error
   }
+  throw lastError ?? new Error('No config endpoint responded')
 }
 
 /**
