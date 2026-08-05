@@ -105,3 +105,14 @@ desktop.ini
 
 # === 嵌套 git ===
 open-notebook/.git/
+
+# 本地备份与临时文件
+backups/
+open-notebook-git-backup/
+tmp_*.txt
+*.log
+api-verify*
+
+# 个人隐私与超大打包
+gaokao.md
+*.zip

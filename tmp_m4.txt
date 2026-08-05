@@ -1,9 +1,0 @@
-.F                                                                       [100%]
-================================== FAILURES ===================================
-_________________ TestMCPToolsRegistered.test_tool_signatures _________________
-tests\test_mcp_server.py:35: in test_tool_signatures
-    assert "query" in params
-E   AssertionError: assert 'query' in {'additionalProperties': False, 'properties': {'limit': {'default': 5, 'type': 'integer'}, 'notebook_id': {'anyOf': [{... 'string'}, {'type': 'null'}], 'default': None}, 'query': {'type': 'string'}}, 'required': ['query'], 'type': 'object'}
-=========================== short test summary info ===========================
-FAILED tests/test_mcp_server.py::TestMCPToolsRegistered::test_tool_signatures
-1 failed, 1 passed in 3.68s
