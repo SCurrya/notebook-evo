@@ -1,3 +1,0 @@
-
-E           AttributeError: <module 'open_notebook.search.advanced_retrieval' from 'E:\\notebook\\open-notebook\\open_notebook\\search\\advanced_retrieval.py'> does not have the attribute 'hybrid_search'
-
