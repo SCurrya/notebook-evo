@@ -116,3 +116,6 @@ api-verify*
 # 个人隐私与超大打包
 gaokao.md
 *.zip
+
+# 敏感备份
+.env.bak
