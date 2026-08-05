@@ -155,14 +155,47 @@ async def ensure_preferred_provider_setup() -> Dict[str, Optional[str]]:
     sensenova_key = _env("SENSENOVA_API_KEY")
     openrouter_key = _env("OPENROUTER_API_KEY")
 
-    sensenova_cred = await _ensure_credential(
-        provider=SENSENOVA_PROVIDER,
-        name="SenseNova Primary",
-        api_key=sensenova_key,
-        modalities=["language", "embedding"],
-        base_url=SENSENOVA_CHAT_BASE_URL,
-        endpoint_embedding=SENSENOVA_EMBEDDING_URL,
-    )
+    # We only make SenseNova the default provider when its key is present
+    # AND actually works. Otherwise (e.g. invalid/expired key → 403) we keep
+    # whatever default chat model the user already configured, so RAG and
+    # generation do not silently break on every restart.
+    defaults = await DefaultModels.get_instance()
+    sensenova_works = bool(sensenova_key)
+    if sensenova_works:
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                resp = await client.post(
+                    SENSENOVA_CHAT_BASE_URL + "/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {sensenova_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": SENSENOVA_CHAT_MODEL,
+                        "messages": [{"role": "user", "content": "ping"}],
+                        "max_tokens": 1,
+                    },
+                )
+                sensenova_works = resp.status_code == 200
+                if not sensenova_works:
+                    logger.warning(
+                        "SenseNova chat probe failed HTTP {} — keeping existing default models",
+                        resp.status_code,
+                    )
+        except Exception as error:
+            logger.warning("SenseNova chat probe failed: {}", type(error).__name__)
+            sensenova_works = False
+
+    sensenova_cred = None
+    if sensenova_works:
+        sensenova_cred = await _ensure_credential(
+            provider=SENSENOVA_PROVIDER,
+            name="SenseNova Primary",
+            api_key=sensenova_key,
+            modalities=["language", "embedding"],
+            base_url=SENSENOVA_CHAT_BASE_URL,
+            endpoint_embedding=SENSENOVA_EMBEDDING_URL,
+        )
     openrouter_cred = await _ensure_credential(
         provider=OPENROUTER_PROVIDER,
         name="OpenRouter Fallback",
@@ -201,7 +234,7 @@ async def ensure_preferred_provider_setup() -> Dict[str, Optional[str]]:
     )
 
     sensenova_embedding_id = None
-    if await probe_sensenova_embedding(sensenova_key):
+    if sensenova_works and await probe_sensenova_embedding(sensenova_key):
         sensenova_embedding_id = await _ensure_model(
             name=SENSENOVA_EMBEDDING_MODEL,
             provider=SENSENOVA_PROVIDER,
@@ -209,13 +242,14 @@ async def ensure_preferred_provider_setup() -> Dict[str, Optional[str]]:
             credential_id=sensenova_cred_id,
         )
 
-    defaults = await DefaultModels.get_instance()
-    defaults.default_chat_model = chat_model_id
-    defaults.default_tools_model = chat_model_id
-    defaults.large_context_model = chat_model_id
-    defaults.default_transformation_model = transform_model_id
-    defaults.default_embedding_model = sensenova_embedding_id or openrouter_embedding_id
-    await defaults.update()
+    # Only override defaults when SenseNova actually works.
+    if sensenova_works:
+        defaults.default_chat_model = chat_model_id
+        defaults.default_tools_model = chat_model_id
+        defaults.large_context_model = chat_model_id
+        defaults.default_transformation_model = transform_model_id
+        defaults.default_embedding_model = sensenova_embedding_id or openrouter_embedding_id
+        await defaults.update()
 
     logger.info(
         "Preferred AI defaults ensured: chat={} transform={} embedding={} fallback_chat={} fallback_embedding={}",
