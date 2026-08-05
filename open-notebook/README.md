@@ -17,6 +17,7 @@
 | 能力 | 说明 | 技术要点 |
 |------|------|---------|
 | 🔍 **混合检索** | BM25 全文 + 向量语义双路召回，RRF 融合 + 可选 Rerank | `open_notebook/search/hybrid.py` |
+| 🀄 **中文检索** | jieba 分词 + rank_bm25 兜底（SurrealDB 英文 analyzer 无法处理中文） | `open_notebook/search/chinese_bm25.py` |
 | 📊 **RAG 评估中心** | RAGAS 四维指标自动评估回答质量，可视化报告 | `api/eval_service.py` + 前端仪表盘 |
 | 🤖 **Agent 持久化** | 多智能体状态跨重启恢复，任务依赖 DAG 可视化编排 | `api/agent_persistence.py` |
 | 🕸️ **GraphRAG 问答** | 实体关系图谱推理 + 向量检索融合问答 | `open_notebook/graphrag.py` |
@@ -135,7 +136,7 @@ uv run ruff check api/ open_notebook/ tests/
 cd frontend && npm run lint
 ```
 
-本增强版新增 40+ 单元测试（混合检索 / RAG 评估 / GraphRAG / MCP / Agent 持久化 / 高级检索）。
+本增强版新增 51 个单元测试（混合检索 / 中文 BM25 / RAG 评估 / GraphRAG / MCP / Agent 持久化 / 高级检索）。
 
 ## 🗺️ Roadmap
 
