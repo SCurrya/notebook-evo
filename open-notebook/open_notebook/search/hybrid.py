@@ -35,6 +35,12 @@ class HybridSearchResult:
     rerank_score: Optional[float] = None
     sources: List[str] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        # Guard: SurrealDB BM25 `matches` can surface as list content
+        self.title = _to_text(self.title)
+        self.content = _to_text(self.content)
+        self.parent_id = _to_text(self.parent_id)
+
 
 def _normalize_id(raw_id: Any) -> str:
     """Convert SurrealDB record id (dict or str) into 'table:id' string."""
@@ -45,6 +51,28 @@ def _normalize_id(raw_id: Any) -> str:
         id_part = raw_id.get("id", "")
         return f"{tb}:{id_part}"
     return str(raw_id)
+
+
+def _to_text(value: Any) -> str:
+    """Coerce content fields to plain text.
+
+    text_search can return `matches` as a list of dicts (SurrealDB BM25
+    highlight matches) or content as a list. Normalize everything to a
+    single string for downstream consumers.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        parts = []
+        for item in value:
+            if isinstance(item, dict):
+                parts.append(str(item.get("text") or item.get("content") or item))
+            else:
+                parts.append(str(item))
+        return " ".join(p for p in parts if p)
+    return str(value)
 
 
 def _build_rerank_payload(query: str, results: List[HybridSearchResult]) -> Dict[str, Any]:
@@ -104,8 +132,8 @@ def _rrf_fuse(
                 continue
             entry = rrf_scores.setdefault(rid, {
                 "id": rid,
-                "title": hit.get("title") or "",
-                "content": hit.get("content") or hit.get("matches") or "",
+                "title": _to_text(hit.get("title")),
+                "content": _to_text(hit.get("content") or hit.get("matches")),
                 "parent_id": _normalize_id(hit.get("parent_id") or hit.get("item_id") or hit.get("id")),
                 "rrf": 0.0,
                 "vector_score": None,
@@ -121,8 +149,8 @@ def _rrf_fuse(
                         entry["vector_score"] = float(s)
                     except (TypeError, ValueError):
                         pass
-                entry["title"] = hit.get("title") or entry["title"]
-                entry["content"] = hit.get("content") or entry["content"]
+                entry["title"] = _to_text(hit.get("title")) or entry["title"]
+                entry["content"] = _to_text(hit.get("content")) or entry["content"]
                 entry["parent_id"] = _normalize_id(hit.get("parent_id") or entry["parent_id"])
             else:
                 s = hit.get("relevance") or hit.get("score") or hit.get("similarity")
@@ -132,9 +160,9 @@ def _rrf_fuse(
                     except (TypeError, ValueError):
                         pass
                 if hit.get("title"):
-                    entry["title"] = hit["title"]
+                    entry["title"] = _to_text(hit["title"])
                 if hit.get("content"):
-                    entry["content"] = hit["content"]
+                    entry["content"] = _to_text(hit["content"])
                 if hit.get("parent_id"):
                     entry["parent_id"] = _normalize_id(hit["parent_id"])
 
