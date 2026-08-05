@@ -32,8 +32,8 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Run tests
-        run: uv run pytest tests/ -v
+      - name: Run unit tests (no DB required)
+        run: uv run pytest tests/test_hybrid_search.py tests/test_chinese_bm25.py tests/test_eval_service.py tests/test_graphrag.py tests/test_mcp_server.py tests/test_agent_persistence.py tests/test_advanced_retrieval.py -v
 
   frontend:
     name: Frontend Tests
