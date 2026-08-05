@@ -11,6 +11,7 @@ Pipeline:
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -51,6 +52,50 @@ def _normalize_id(raw_id: Any) -> str:
         id_part = raw_id.get("id", "")
         return f"{tb}:{id_part}"
     return str(raw_id)
+
+
+_CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+
+
+def _contains_cjk(text: str) -> bool:
+    """Return True if the text contains any CJK (Chinese) character."""
+    return bool(_CJK_RE.search(text or ""))
+
+
+async def _chinese_bm25_fallback(query: str, top_k: int) -> List[Dict[str, Any]]:
+    """Run Python-side BM25 (jieba + rank_bm25) when SurrealDB BM25 misses CJK."""
+    from open_notebook.domain.notebook import Note, Source
+    from open_notebook.search.chinese_bm25 import get_chinese_bm25
+
+    bm25 = get_chinese_bm25()
+    if bm25._bm25 is None:
+        try:
+            sources = await Source.get_all()
+        except Exception:
+            sources = []
+        source_docs = []
+        for s in sources:
+            try:
+                source_docs.append(
+                    {"id": s.id, "title": s.title, "full_text": s.full_text, "parent_id": s.id}
+                )
+            except Exception:
+                continue
+        try:
+            notes = await Note.get_all()
+        except Exception:
+            notes = []
+        note_docs = []
+        for n in notes:
+            try:
+                note_docs.append({"id": n.id, "title": n.title, "content": n.content, "parent_id": n.id})
+            except Exception:
+                continue
+        bm25.load_documents(source_docs, note_docs)
+    results = bm25.search(query, top_k=top_k)
+    if results:
+        logger.debug(f"Chinese BM25 fallback: {len(results)} results for '{query}'")
+    return results
 
 
 def _to_text(value: Any) -> str:
@@ -229,6 +274,16 @@ async def hybrid_search(
     except Exception as e:
         logger.warning(f"Text search failed during hybrid search: {e}")
 
+    # --- Chinese BM25 fallback (SurrealDB BM25 doesn't segment CJK) ---
+    if _contains_cjk(query) and not text_results:
+        logger.debug(
+            f"[CN-BM25] CJK query '{query}' with {len(text_results or [])} db results, triggering python BM25"
+        )
+        try:
+            text_results = await _chinese_bm25_fallback(query, text_hits)
+        except Exception as e:
+            logger.warning(f"Chinese BM25 fallback failed: {e}")
+
     if not vector_results and not text_results:
         return []
 
@@ -278,6 +333,13 @@ async def hybrid_search_with_details(
         )
     except Exception as e:
         logger.warning(f"hybrid debug: text failed: {e}")
+
+    # --- Chinese BM25 fallback ---
+    if _contains_cjk(query) and not text_results:
+        try:
+            text_results = await _chinese_bm25_fallback(query, text_hits_count)
+        except Exception as e:
+            logger.warning(f"hybrid debug: chinese bm25 failed: {e}")
 
     fused = _rrf_fuse(vector_results or [], text_results or [], limit)
     rerank_used = False
