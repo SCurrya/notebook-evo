@@ -171,10 +171,12 @@ def _start_surreal_commands_worker():
                 )
 
             # 2. 在新事件循环中跑 worker
+            max_tasks = int(os.getenv("OPEN_NOTEBOOK_WORKER_MAX_TASKS", "5"))
+            logger.info(f"surreal-commands worker max_tasks={max_tasks}")
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                loop.run_until_complete(listen_for_commands(max_tasks=5))
+                loop.run_until_complete(listen_for_commands(max_tasks=max_tasks))
             finally:
                 loop.close()
         except Exception as e:
