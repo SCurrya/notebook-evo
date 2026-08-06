@@ -53,42 +53,76 @@ async def _model_call_with_fallback(
         if not model_id:
             raise
         try:
-            # Find a fallback model among available ones (same provider)
-            from open_notebook.ai.models import Model, model_manager
-
-            primary = await model_manager.get_model(model_id)
-            primary_provider = getattr(primary, "provider", "") if primary else ""
-            logger.warning(f"[fallback] primary provider: {primary_provider}")
-            models = await Model.get_models_by_type("language")
-            logger.warning(f"[fallback] found {len(models)} language models")
-            # Provider names may be hyphenated (Esperanto) or underscored (DB);
-            # normalize both sides before comparing.
-            primary_provider_norm = primary_provider.replace("_", "-").lower()
-            candidates = [
-                m
-                for m in models
-                if (getattr(m, "provider", "") or "").replace("_", "-").lower()
-                == primary_provider_norm
-                and m.id != model_id
-            ]
-            logger.warning(f"[fallback] {len(candidates)} same-provider candidates")
-            # Prefer model names matching our fallback hints
-            candidates.sort(
-                key=lambda m: (
-                    0 if any(h in (m.name or "") for h in FALLBACK_MODEL_HINTS) else 1
-                )
-            )
-            if not candidates:
-                raise primary_error
-            fallback = candidates[0]
-            logger.warning(
-                f"[fallback] Primary model {model_id} failed, retrying with fallback "
-                f"{fallback.id} ({fallback.name}) among [{', '.join(m.name or '?' for m in candidates)}]"
-            )
-            return await _invoke(fallback.id)
+            # Fallback across providers (chain): same-provider hints first,
+            # then same-provider, then any other provider's language model.
+            last_error = primary_error
+            for fallback in await _fallback_chain(model_id, FALLBACK_MODEL_HINTS):
+                try:
+                    logger.warning(
+                        f"[fallback] Primary model {model_id} failed, trying {fallback.id} ({fallback.name})"
+                    )
+                    return await _invoke(fallback.id)
+                except Exception as e:
+                    last_error = e
+                    logger.warning(f"[fallback] fallback {fallback.id} also failed: {type(e).__name__}")
+            raise last_error
         except Exception as fallback_error:
             logger.warning(f"[fallback] fallback path failed: {type(fallback_error).__name__}: {fallback_error}")
             raise primary_error
+
+
+async def _fallback_chain(
+    failed_model_id: str, hint_substrings: list[str]
+) -> "list[Any]":
+    """Return an ordered chain of fallback language models for a failed call.
+
+    Order (best effort, resilient to single-provider outages):
+      1. Same-provider candidates matching fallback hints (e.g. a "mini" model)
+      2. Same-provider candidates (any)
+      3. Other providers' language models (cross-provider fallback)
+
+    Returns an empty list if nothing is available.
+    """
+    try:
+        from open_notebook.ai.models import Model, model_manager
+
+        primary = await model_manager.get_model(failed_model_id)
+        primary_provider = getattr(primary, "provider", "") if primary else ""
+        primary_provider_norm = primary_provider.replace("_", "-").lower()
+        models = await Model.get_models_by_type("language")
+
+        def _norm(p: str | None) -> str:
+            return (p or "").replace("_", "-").lower()
+
+        same_provider = [
+            m for m in models
+            if _norm(getattr(m, "provider", None)) == primary_provider_norm
+            and m.id != failed_model_id
+        ]
+        other_provider = [
+            m for m in models
+            if _norm(getattr(m, "provider", None)) != primary_provider_norm
+            and m.id != failed_model_id
+        ]
+
+        def _hinted(models_list):
+            return sorted(
+                models_list,
+                key=lambda m: 0 if any(h in (m.name or "") for h in hint_substrings) else 1,
+            )
+
+        chain: list = []
+        seen: set[str] = set()
+        for bucket in (_hinted(same_provider), same_provider, _hinted(other_provider)):
+            for m in bucket:
+                if m.id in seen:
+                    continue
+                seen.add(m.id)
+                chain.append(m)
+        return chain
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"[fallback] _fallback_chain failed: {exc}")
+        return []
 
 
 async def _structured_call_with_fallback(
@@ -132,35 +166,19 @@ async def _structured_call_with_fallback(
         logger.warning(f"[fallback] structured call failed: {type(primary_error).__name__}: {primary_error}")
         if not model_id:
             raise
-        try:
-            from open_notebook.ai.models import Model, model_manager
-
-            primary = await model_manager.get_model(model_id)
-            primary_provider = getattr(primary, "provider", "") if primary else ""
-            primary_provider_norm = primary_provider.replace("_", "-").lower()
-            models = await Model.get_models_by_type("language")
-            candidates = [
-                m
-                for m in models
-                if (getattr(m, "provider", "") or "").replace("_", "-").lower()
-                == primary_provider_norm
-                and m.id != model_id
-            ]
-            candidates.sort(
-                key=lambda m: (
-                    0 if any(h in (m.name or "") for h in FALLBACK_MODEL_HINTS) else 1
+        last_error = primary_error
+        # Try every candidate in order (same-provider hints -> same-provider ->
+        # other providers) until one succeeds.
+        for fallback in await _fallback_chain(model_id, FALLBACK_MODEL_HINTS):
+            try:
+                logger.warning(
+                    f"[fallback] Structured primary {model_id} failed, trying {fallback.id} ({fallback.name})"
                 )
-            )
-            if not candidates:
-                raise primary_error
-            fallback = candidates[0]
-            logger.warning(
-                f"[fallback] Structured primary model {model_id} failed, using fallback {fallback.id}"
-            )
-            return await _invoke(fallback.id)
-        except Exception as fallback_error:
-            logger.warning(f"[fallback] structured fallback failed: {fallback_error}")
-            raise primary_error
+                return await _invoke(fallback.id)
+            except Exception as e:
+                last_error = e
+                logger.warning(f"[fallback] structured fallback {fallback.id} also failed: {type(e).__name__}")
+        raise last_error
 
 
 class SubGraphState(TypedDict):
