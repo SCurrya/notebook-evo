@@ -44,6 +44,7 @@ class Operation:
     UPDATE = "UPDATE"
     DELETE = "DELETE"
     SEARCH = "SEARCH"
+    LIST = "LIST"
     TRANSFORM = "TRANSFORM"
     CHAT = "CHAT"
     EVAL = "EVAL"
