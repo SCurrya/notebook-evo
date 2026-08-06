@@ -26,6 +26,7 @@
 | 🚀 **一键演示** | 内置示例数据 + 一键启动脚本，5 分钟跑起来 | `start-demo.bat` |
 | 📱 **双端同步** | Tailscale 内网穿透，手机电脑访问同一知识库 | `docs/mobile-sync.md` |
 | ✅ **工程化** | CI（lint + test）、Docker 一键部署、架构文档 | `.github/workflows/` |
+| 🔐 **安全加固** | SSRF/DNS 重绑定防护、SurrealQL 注入修复、Jinja2 模板注入修复、跨 provider 模型降级 | 移植原版 v1.12-1.14 安全修复 |
 
 ## 🧱 技术栈
 
