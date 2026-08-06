@@ -91,7 +91,7 @@ PROVIDER_MODALITIES: Dict[str, List[str]] = {
 # =============================================================================
 
 
-def validate_url(url: str, provider: str) -> None:
+async def validate_url(url: str, provider: str) -> None:
     """
     Validate URL format for API endpoints.
 
@@ -113,83 +113,20 @@ def validate_url(url: str, provider: str) -> None:
     Raises:
         ValueError: If the URL is invalid
     """
-    import asyncio
-
     from open_notebook.utils.url_validation import validate_url as _validate_url
 
     if not url or not url.strip():
         return  # Empty URLs handled elsewhere
 
     try:
-        # The shared module is async (safe, off-event-loop DNS resolution).
-        # validate_url() is called from sync FastAPI endpoints (thread pool),
-        # so no loop is running and asyncio.run() is safe. If a loop IS
-        # running (rare), fall back to the synchronous core check.
-        try:
-            asyncio.get_running_loop()
-            in_loop = True
-        except RuntimeError:
-            in_loop = False
-
-        if in_loop:
-            _validate_url_sync(url, provider)
-        else:
-            asyncio.run(_validate_url(url, provider))
+        await _validate_url(url, provider)
     except ValueError:
         raise
     except Exception:
         raise ValueError("Invalid URL format. Check server logs for details.")
 
 
-def _validate_url_sync(url: str, provider: str) -> None:
-    """Synchronous fallback for validate_url when no event loop is available."""
-    try:
-        parsed = urlparse(url.strip())
-        if parsed.scheme not in ("http", "https"):
-            raise ValueError(
-                f"Invalid URL scheme: '{parsed.scheme}'. Only http and https are allowed."
-            )
-        hostname = parsed.hostname
-        if not hostname:
-            raise ValueError("Invalid URL: hostname could not be determined.")
-        try:
-            ip = ipaddress.ip_address(hostname)
-            _reject_sync(ip, hostname)
-        except ValueError as ve:
-            if "metadata" in str(ve).lower() or "Link-local" in str(ve) or "Invalid URL" in str(ve):
-                raise
-            try:
-                resolved_ips = socket.getaddrinfo(hostname, None)
-                for family, _, _, _, sockaddr in resolved_ips:
-                    try:
-                        _reject_sync(ipaddress.ip_address(sockaddr[0]), hostname)
-                    except ValueError as inner_ve:
-                        if "metadata" in str(inner_ve).lower() or "link-local" in str(inner_ve).lower():
-                            raise
-                        continue
-            except socket.gaierror:
-                pass
-    except ValueError:
-        raise
 
-
-def _reject_sync(ip, hostname: str) -> None:
-    """Reject link-local + AWS IMDSv6 addresses (sync fallback)."""
-    is_ipv4_mapped_link_local = (
-        hasattr(ip, "ipv4_mapped") and ip.ipv4_mapped and ip.ipv4_mapped.is_link_local
-    )
-    if ip.is_link_local or is_ipv4_mapped_link_local:
-        raise ValueError(
-            f"Hostname '{hostname}' resolves to a link-local address (169.254.x.x) which is not allowed for security reasons. "
-            "These addresses are used for cloud metadata endpoints."
-        )
-    # AWS IMDSv6 (fd00:ec2::254) — a ULA, not link-local, needs explicit check.
-    aws_v6 = __import__("ipaddress").ip_address("fd00:ec2::254")
-    if isinstance(ip, ipaddress.IPv6Address) and int(ip) == int(aws_v6):
-        raise ValueError(
-            f"Hostname '{hostname}' resolves to the AWS IMDSv6 metadata address "
-            "(fd00:ec2::254), which is not allowed for security reasons."
-        )
 
 
 # =============================================================================
