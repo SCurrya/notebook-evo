@@ -1,3 +1,4 @@
+import os
 from typing import Any, ClassVar, Dict, Optional, Union
 
 from esperanto import (
@@ -147,6 +148,12 @@ class ModelManager:
             from open_notebook.ai.key_provider import provision_provider_keys
 
             await provision_provider_keys(model.provider)
+
+        # For openai_compatible without a DB credential, build config from env
+        # so Esperanto targets the right base_url instead of api.openai.com.
+        if not model.credential and model.provider.lower() == "openai_compatible":
+            config.setdefault("api_key", os.getenv("OPENAI_COMPATIBLE_API_KEY"))
+            config.setdefault("base_url", os.getenv("OPENAI_COMPATIBLE_BASE_URL"))
 
         # Merge any additional kwargs (e.g. temperature)
         config.update(kwargs)
