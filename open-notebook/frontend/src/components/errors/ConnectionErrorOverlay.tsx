@@ -27,11 +27,12 @@ export function ConnectionErrorOverlay({
 
   return (
     <div
-      className="fixed inset-0 bg-background z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-background z-50 overflow-y-auto"
       role="alert"
       aria-live="assertive"
       aria-atomic="true"
     >
+      <div className="min-h-full flex items-start justify-center p-4 sm:py-10">
       <Card className="max-w-2xl w-full p-8 space-y-6">
         {/* Error icon and title */}
         <div className="flex items-center gap-4">
@@ -170,6 +171,7 @@ export function ConnectionErrorOverlay({
           </p>
         </div>
       </Card>
+      </div>
     </div>
   )
 }
