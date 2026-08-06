@@ -30,16 +30,19 @@ async def run_transformation(state: dict, config: RunnableConfig) -> dict:
     try:
         if not content:
             content = source.full_text
-        transformation_template_text = transformation.prompt
+        # transformation.prompt is user-controlled free text. Never compile it
+        # as Jinja template *source* (Prompter(template_text=...)) - pass it as
+        # a plain render variable into a fixed, developer-authored template
+        # instead. This prevents Jinja2 template-injection DoS from malicious
+        # transformation prompts (upstream GHSA hardening).
+        instructions = transformation.prompt
         default_prompts: DefaultPrompts = DefaultPrompts(transformation_instructions=None)
         if default_prompts.transformation_instructions:
-            transformation_template_text = f"{default_prompts.transformation_instructions}\n\n{transformation_template_text}"
+            instructions = f"{default_prompts.transformation_instructions}\n\n{instructions}"
 
-        transformation_template_text = f"{transformation_template_text}\n\n# INPUT"
-
-        system_prompt = Prompter(template_text=transformation_template_text).render(
-            data=state
-        )
+        system_prompt = Prompter(
+            prompt_template="transformation/execute"
+        ).render(data={**state, "instructions": instructions})
         content_str = str(content) if content else ""
         payload = [SystemMessage(content=system_prompt), HumanMessage(content=content_str)]
         chain = await provision_langchain_model(
