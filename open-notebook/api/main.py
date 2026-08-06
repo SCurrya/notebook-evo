@@ -418,6 +418,7 @@ for _required_mod in [
     "agents",
     "knowledge_graph",
     "config",
+    "providers",
 ]:
     _include_router_module(_required_mod, required=True)
 
