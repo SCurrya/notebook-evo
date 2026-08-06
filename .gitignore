@@ -119,3 +119,7 @@ gaokao.md
 
 # 敏感备份
 .env.bak
+
+# 原版参考解压目录
+_upstream_ref/
+open-notebook-main.zip
