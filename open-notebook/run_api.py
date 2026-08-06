@@ -51,10 +51,13 @@ def _start_surreal_commands_worker() -> None:
                     "No commands registered! Async processing will not work."
                 )
 
+            max_tasks = int(os.getenv("OPEN_NOTEBOOK_WORKER_MAX_TASKS", "5"))
+            print(f"surreal-commands worker max_tasks={max_tasks}")
+
             loop = __import__("asyncio").new_event_loop()
             __import__("asyncio").set_event_loop(loop)
             try:
-                loop.run_until_complete(listen_for_commands(max_tasks=5))
+                loop.run_until_complete(listen_for_commands(max_tasks=max_tasks))
             finally:
                 loop.close()
         except Exception:
