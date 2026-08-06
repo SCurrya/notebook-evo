@@ -103,7 +103,8 @@ def validate_url(url: str, provider: str) -> None:
     - Invalid schemes (must be http or https)
     - Malformed URLs
     - Link-local addresses (169.254.x.x) - used for cloud metadata endpoints
-    - Hostnames that resolve to link-local addresses
+    - AWS's IPv6 metadata address (fd00:ec2::254)
+    - Hostnames that resolve to any of the above
 
     Args:
         url: The URL to validate
@@ -112,85 +113,83 @@ def validate_url(url: str, provider: str) -> None:
     Raises:
         ValueError: If the URL is invalid
     """
+    import asyncio
+
+    from open_notebook.utils.url_validation import validate_url as _validate_url
+
     if not url or not url.strip():
         return  # Empty URLs handled elsewhere
 
     try:
-        parsed = urlparse(url.strip())
-
-        # Validate scheme - only http/https allowed
-        if parsed.scheme not in ("http", "https"):
-            raise ValueError(
-                f"Invalid URL scheme: '{parsed.scheme}'. Only http and https are allowed."
-            )
-
-        # Extract hostname
-        hostname = parsed.hostname
-        if not hostname:
-            raise ValueError("Invalid URL: hostname could not be determined.")
-
-        # Try to parse as IP address to check for dangerous addresses
+        # The shared module is async (safe, off-event-loop DNS resolution).
+        # validate_url() is called from sync FastAPI endpoints (thread pool),
+        # so no loop is running and asyncio.run() is safe. If a loop IS
+        # running (rare), fall back to the synchronous core check.
         try:
-            ip = ipaddress.ip_address(hostname)
+            asyncio.get_running_loop()
+            in_loop = True
+        except RuntimeError:
+            in_loop = False
 
-            # Block link-local addresses (169.254.x.x) - used for cloud metadata
-            # These are dangerous as they can expose cloud instance credentials
-            if ip.is_link_local:
-                raise ValueError(
-                    "Link-local addresses (169.254.x.x) are not allowed for security reasons. "
-                    "These addresses are used for cloud metadata endpoints."
-                )
-
-            # Block IPv4-mapped IPv6 addresses pointing to link-local
-            # e.g. ::ffff:169.254.169.254 bypasses IPv6 is_link_local check
-            if hasattr(ip, "ipv4_mapped") and ip.ipv4_mapped and ip.ipv4_mapped.is_link_local:
-                raise ValueError(
-                    "Link-local addresses (169.254.x.x) are not allowed for security reasons. "
-                    "These addresses are used for cloud metadata endpoints."
-                )
-
-        except ValueError as ve:
-            # Re-raise our own ValueErrors
-            if "Link-local" in str(ve) or "Invalid URL" in str(ve):
-                raise
-            # Not an IP address, it's a hostname - need to resolve and check
-            try:
-                # Resolve hostname to IP address
-                resolved_ips = socket.getaddrinfo(hostname, None)
-                for family, _, _, _, sockaddr in resolved_ips:
-                    ip_addr = sockaddr[0]
-                    try:
-                        parsed_ip = ipaddress.ip_address(ip_addr)
-                        if parsed_ip.is_link_local:
-                            raise ValueError(
-                                f"Hostname '{hostname}' resolves to a link-local address (169.254.x.x) which is not allowed for security reasons. "
-                                "These addresses are used for cloud metadata endpoints."
-                            )
-                        # Block IPv4-mapped IPv6 addresses pointing to link-local
-                        if (
-                            hasattr(parsed_ip, "ipv4_mapped")
-                            and parsed_ip.ipv4_mapped
-                            and parsed_ip.ipv4_mapped.is_link_local
-                        ):
-                            raise ValueError(
-                                f"Hostname '{hostname}' resolves to a link-local address (169.254.x.x) which is not allowed for security reasons. "
-                                "These addresses are used for cloud metadata endpoints."
-                            )
-                    except ValueError as inner_ve:
-                        if "link-local" in str(inner_ve).lower() or "Link-local" in str(inner_ve):
-                            raise
-                        # Skip non-IP addresses (e.g., IPv6 zones)
-                        continue
-            except socket.gaierror:
-                # Could not resolve hostname - allow it since the URL may be
-                # valid in the deployment environment (e.g., Azure endpoints,
-                # internal DNS names). We only block link-local addresses.
-                pass
-
+        if in_loop:
+            _validate_url_sync(url, provider)
+        else:
+            asyncio.run(_validate_url(url, provider))
     except ValueError:
         raise
     except Exception:
         raise ValueError("Invalid URL format. Check server logs for details.")
+
+
+def _validate_url_sync(url: str, provider: str) -> None:
+    """Synchronous fallback for validate_url when no event loop is available."""
+    try:
+        parsed = urlparse(url.strip())
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(
+                f"Invalid URL scheme: '{parsed.scheme}'. Only http and https are allowed."
+            )
+        hostname = parsed.hostname
+        if not hostname:
+            raise ValueError("Invalid URL: hostname could not be determined.")
+        try:
+            ip = ipaddress.ip_address(hostname)
+            _reject_sync(ip, hostname)
+        except ValueError as ve:
+            if "metadata" in str(ve).lower() or "Link-local" in str(ve) or "Invalid URL" in str(ve):
+                raise
+            try:
+                resolved_ips = socket.getaddrinfo(hostname, None)
+                for family, _, _, _, sockaddr in resolved_ips:
+                    try:
+                        _reject_sync(ipaddress.ip_address(sockaddr[0]), hostname)
+                    except ValueError as inner_ve:
+                        if "metadata" in str(inner_ve).lower() or "link-local" in str(inner_ve).lower():
+                            raise
+                        continue
+            except socket.gaierror:
+                pass
+    except ValueError:
+        raise
+
+
+def _reject_sync(ip, hostname: str) -> None:
+    """Reject link-local + AWS IMDSv6 addresses (sync fallback)."""
+    is_ipv4_mapped_link_local = (
+        hasattr(ip, "ipv4_mapped") and ip.ipv4_mapped and ip.ipv4_mapped.is_link_local
+    )
+    if ip.is_link_local or is_ipv4_mapped_link_local:
+        raise ValueError(
+            f"Hostname '{hostname}' resolves to a link-local address (169.254.x.x) which is not allowed for security reasons. "
+            "These addresses are used for cloud metadata endpoints."
+        )
+    # AWS IMDSv6 (fd00:ec2::254) — a ULA, not link-local, needs explicit check.
+    aws_v6 = __import__("ipaddress").ip_address("fd00:ec2::254")
+    if isinstance(ip, ipaddress.IPv6Address) and int(ip) == int(aws_v6):
+        raise ValueError(
+            f"Hostname '{hostname}' resolves to the AWS IMDSv6 metadata address "
+            "(fd00:ec2::254), which is not allowed for security reasons."
+        )
 
 
 # =============================================================================
