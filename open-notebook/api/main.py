@@ -95,7 +95,6 @@ def _include_router_module(module_name: str, required: bool = True) -> bool:
 
 def _load_optional_routers() -> None:
     for module_name in [
-        "config",
         "context",
         "embedding",
         "embedding_rebuild",
@@ -418,6 +417,7 @@ for _required_mod in [
     "eval",
     "agents",
     "knowledge_graph",
+    "config",
 ]:
     _include_router_module(_required_mod, required=True)
 
