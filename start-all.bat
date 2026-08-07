@@ -64,7 +64,7 @@ echo.
 netstat -ano | findstr ":8000 " | findstr "LISTENING" >nul 2>&1
 if %errorlevel% neq 0 (
     echo [1/4] 启动 SurrealDB...
-    start "SurrealDB" /B "C:\Tools\surreal\surreal.exe" start --user root --pass root --bind 0.0.0.0:8000 rocksdb:E:\notebook\open-notebook-data\surrealdb\mydatabase.db
+    start "SurrealDB" /B "C:\Tools\surreal\surreal.exe" start --user root --pass root --bind 0.0.0.0:8000 rocksdb:E:\notebook\open-notebook\surreal_data\db
     echo   等待 SurrealDB 就绪...
     timeout /t 3 /nobreak >nul
     echo   [OK] SurrealDB 已启动 (0.0.0.0:8000)
@@ -79,7 +79,7 @@ echo.
 netstat -ano | findstr ":5055 " | findstr "LISTENING" >nul 2>&1
 if %errorlevel% neq 0 (
     echo [2/4] 启动 Open Notebook API...
-    set DATA_FOLDER=E:\notebook\open-notebook-data
+    set DATA_FOLDER=E:\notebook\open-notebook\data
     set PYTHONPATH=E:\notebook\open-notebook
     set API_HOST=0.0.0.0
     set API_PORT=5055

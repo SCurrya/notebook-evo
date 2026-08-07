@@ -142,3 +142,6 @@ specs/
 .harness/
 
 .mcp.json
+
+# 凭据备忘（勿提交）
+CREDENTIALS.md

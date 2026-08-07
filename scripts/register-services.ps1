@@ -50,7 +50,7 @@ if ($svc -and $svc.Status -eq 'Running') {
 # Also register SurrealDB and API as scheduled tasks (auto-start on login)
 Write-Host "`n=== Registering SurrealDB auto-start ===" -ForegroundColor Cyan
 $surrealAction = New-ScheduledTaskAction -Execute 'C:\Tools\surreal\surreal.exe' `
-    -Argument 'start --user root --pass root --bind 0.0.0.0:8000 rocksdb:E:\notebook\open-notebook-data\surrealdb\mydatabase.db' `
+    -Argument 'start --user root --pass root --bind 0.0.0.0:8000 rocksdb:E:\notebook\open-notebook\surreal_data\db' `
     -WorkingDirectory 'E:\notebook\open-notebook'
 $surrealTrigger = New-ScheduledTaskTrigger -AtLogOn
 $surrealTrigger.Delay = 'PT5S'
@@ -66,7 +66,7 @@ $apiTrigger = New-ScheduledTaskTrigger -AtLogOn
 $apiTrigger.Delay = 'PT15S'
 $apiSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
 $apiEnv = New-ScheduledTaskAction -Execute 'cmd.exe' `
-    -Argument '/c set DATA_FOLDER=E:\notebook\open-notebook-data && set PYTHONPATH=E:\notebook\open-notebook && set API_HOST=0.0.0.0 && set API_PORT=5055 && set API_RELOAD=false && E:\notebook\open-notebook\.venv\Scripts\python.exe run_api.py' `
+    -Argument '/c set DATA_FOLDER=E:\notebook\open-notebook\data && set PYTHONPATH=E:\notebook\open-notebook && set API_HOST=0.0.0.0 && set API_PORT=5055 && set API_RELOAD=false && E:\notebook\open-notebook\.venv\Scripts\python.exe run_api.py' `
     -WorkingDirectory 'E:\notebook\open-notebook'
 Register-ScheduledTask -TaskName 'OpenNotebook-API-AutoStart' -Action $apiEnv -Trigger $apiTrigger -Settings $apiSettings -User 'SYSTEM' -RunLevel Highest -Force | Out-Null
 Write-Host "✅ Open Notebook API auto-start registered" -ForegroundColor Green

@@ -52,6 +52,7 @@ MoneyPrinterTurbo/
 claude-package/
 codex-skill-manager-wpf/
 open-notebook-backup-*/
+open-notebook-data-backup-*/
 open-notebook-claude-package-*.zip
 downloads/
 releases/
@@ -119,6 +120,7 @@ gaokao.md
 
 # 敏感备份
 .env.bak
+CREDENTIALS.md
 
 # 原版参考解压目录
 _upstream_ref/

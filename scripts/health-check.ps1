@@ -35,14 +35,14 @@ function Test-Service {
 function Start-SurrealDB {
     Write-Log "启动 SurrealDB..."
     Start-Process -FilePath 'C:\Tools\surreal\surreal.exe' `
-        -ArgumentList 'start','--user','root','--pass','root','--bind','0.0.0.0:8000','rocksdb:E:\notebook\open-notebook-data\surrealdb\mydatabase.db' `
+        -ArgumentList 'start','--user','root','--pass','root','--bind','0.0.0.0:8000','rocksdb:E:\notebook\open-notebook\surreal_data\db' `
         -WorkingDirectory 'E:\notebook\open-notebook' -WindowStyle Hidden
     Start-Sleep -Seconds 3
 }
 
 function Start-API {
     Write-Log "启动 API..."
-    $env:DATA_FOLDER = 'E:\notebook\open-notebook-data'
+    $env:DATA_FOLDER = 'E:\notebook\open-notebook\data'
     $env:PYTHONPATH = 'E:\notebook\open-notebook'
     $env:API_HOST = '0.0.0.0'
     $env:API_PORT = '5055'

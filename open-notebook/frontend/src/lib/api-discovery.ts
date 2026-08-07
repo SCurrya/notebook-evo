@@ -19,6 +19,9 @@ function getCandidateUrls(): string[] {
   candidates.push('http://192.168.5.22:5055')
   // LAN via Caddy (Caddy adds CORS headers + serves /health)
   candidates.push('http://192.168.5.22:8889')
+  // Ethernet fallback (PC wired to router, slower to timeout)
+  candidates.push('http://172.19.83.237:5055')
+  candidates.push('http://172.19.83.237:8889')
   // Tailscale direct API (works anywhere with Tailscale VPN)
   candidates.push('http://100.108.217.19:5055')
   // Tailscale via Caddy
