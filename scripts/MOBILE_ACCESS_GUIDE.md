@@ -25,12 +25,13 @@
 ```
 密码位置：E:\notebook\open-notebook\.env 文件
 密码字段：OPEN_NOTEBOOK_PASSWORD=...
-当前值：mobile-notebook-2026-secure-key-change-me
+当前值：jC0O78PdRZTxov6f
 ```
 
 **手机第一次访问时会要求输入这个密码**。记不住的话存在手机密码管理器里（推荐 1Password / 微信收藏）。
 
-> ⚠️ 这串带 `change-me` 后缀是因为默认值是临时占位用的。建议你抽空改成自己好记的串，改完保存文件、重启 API 服务（执行 `E:\notebook\scripts\start-api.bat`）即可生效。
+> 💾 完整凭据见 `E:\notebook\CREDENTIALS.md`（已加入 .gitignore，不会提交）。
+> 修改密码：编辑 `E:\notebook\open-notebook\.env` 的 `OPEN_NOTEBOOK_PASSWORD`，保存后重启 API 服务即可生效。
 
 ---
 
