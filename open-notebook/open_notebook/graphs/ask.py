@@ -1,4 +1,5 @@
 import operator
+import time
 from typing import Annotated, Any, List
 
 from loguru import logger
@@ -29,6 +30,36 @@ FALLBACK_MODEL_HINTS = (
     "free",
 )
 
+# ---------------------------------------------------------------------------
+# Per-process model availability cache.
+# When a model call fails (503 / auth / timeout) we remember it for a short
+# window so later calls in the same process (e.g. the 3 ask-graph stages)
+# skip straight to a working fallback instead of burning a timeout on a
+# known-dead provider channel.
+# ---------------------------------------------------------------------------
+_MODEL_COOLDOWN: dict[str, float] = {}
+_MODEL_COOLDOWN_SECONDS = 5 * 60  # 5 minutes
+# Errors we consider "worth caching" - transient enough to retry after TTL.
+_CACHEABLE_ERRORS = ("InternalServerError", "AuthenticationError", "TimeoutError", "ServiceUnavailable")
+
+
+def _mark_model_unavailable(model_id: str, error: Exception) -> None:
+    """Remember that a model call just failed (only for cacheable errors)."""
+    name = type(error).__name__
+    if any(k in name for k in _CACHEABLE_ERRORS):
+        _MODEL_COOLDOWN[model_id] = time.monotonic()
+        logger.warning(f"[fallback] cooldown {model_id} for {_MODEL_COOLDOWN_SECONDS}s ({name})")
+
+
+def _is_model_available(model_id: str) -> bool:
+    mark = _MODEL_COOLDOWN.get(model_id)
+    if mark is None:
+        return True
+    if time.monotonic() - mark > _MODEL_COOLDOWN_SECONDS:
+        _MODEL_COOLDOWN.pop(model_id, None)
+        return True
+    return False
+
 
 async def _model_call_with_fallback(
     system_prompt: str,
@@ -47,9 +78,24 @@ async def _model_call_with_fallback(
         )
         return await call_fn(model)
 
+    # If the primary model is in cooldown (recently failed with 503/auth),
+    # skip straight to the fallback chain - don't burn a timeout on it.
+    if model_id and not _is_model_available(model_id):
+        logger.warning(f"[fallback] primary {model_id} in cooldown, skipping to fallback chain")
+        last_error: Exception | None = None
+        for fallback in await _fallback_chain(model_id, FALLBACK_MODEL_HINTS):
+            try:
+                logger.warning(f"[fallback] trying cooldown-skipped fallback {fallback.id} ({fallback.name})")
+                return await _invoke(fallback.id)
+            except Exception as e:
+                _mark_model_unavailable(fallback.id, e)
+                last_error = e
+        raise last_error or RuntimeError("no fallback models available")
+
     try:
         return await _invoke(model_id)
     except Exception as primary_error:
+        _mark_model_unavailable(model_id or "", primary_error)
         logger.warning(f"[fallback] primary call failed: {type(primary_error).__name__}: {primary_error}")
         # Only fall back when we actually have a model id (explicit selection)
         if not model_id:
@@ -65,6 +111,7 @@ async def _model_call_with_fallback(
                     )
                     return await _invoke(fallback.id)
                 except Exception as e:
+                    _mark_model_unavailable(fallback.id, e)
                     last_error = e
                     logger.warning(f"[fallback] fallback {fallback.id} also failed: {type(e).__name__}")
             raise last_error
@@ -108,10 +155,18 @@ async def _fallback_chain(
         ]
 
         def _hinted(models_list):
-            return sorted(
-                models_list,
-                key=lambda m: 0 if any(h in (m.name or "") for h in hint_substrings) else 1,
-            )
+            """Sort by hint priority (earlier hint in the tuple = higher priority).
+            Falls back to the model name for stable ordering.
+            """
+
+            def _score(m):
+                name = m.name or ""
+                for i, h in enumerate(hint_substrings):
+                    if h in name:
+                        return i
+                return len(hint_substrings)
+
+            return sorted(models_list, key=lambda m: (_score(m), m.name or ""))
 
         chain: list = []
         seen: set[str] = set()
@@ -120,6 +175,10 @@ async def _fallback_chain(
                 if m.id in seen:
                     continue
                 seen.add(m.id)
+                # Skip models in cooldown (recently failed with 503/auth/etc).
+                if not _is_model_available(m.id):
+                    logger.debug(f"[fallback] skipping {m.id} (in cooldown)")
+                    continue
                 chain.append(m)
         return chain
     except Exception as exc:  # noqa: BLE001
@@ -162,9 +221,23 @@ async def _structured_call_with_fallback(
             )
             return await _invoke_plain(mid)
 
+    # Primary in cooldown (known 503/auth) -> skip straight to fallback chain.
+    if model_id and not _is_model_available(model_id):
+        logger.warning(f"[fallback] structured primary {model_id} in cooldown, skipping to fallback chain")
+        last_error: Exception | None = None
+        for fallback in await _fallback_chain(model_id, FALLBACK_MODEL_HINTS):
+            try:
+                logger.warning(f"[fallback] structured cooldown-skipped fallback {fallback.id} ({fallback.name})")
+                return await _invoke(fallback.id)
+            except Exception as e:
+                _mark_model_unavailable(fallback.id, e)
+                last_error = e
+        raise last_error or RuntimeError("no fallback models available")
+
     try:
         return await _invoke(model_id)
     except Exception as primary_error:
+        _mark_model_unavailable(model_id or "", primary_error)
         logger.warning(f"[fallback] structured call failed: {type(primary_error).__name__}: {primary_error}")
         if not model_id:
             raise
@@ -178,6 +251,7 @@ async def _structured_call_with_fallback(
                 )
                 return await _invoke(fallback.id)
             except Exception as e:
+                _mark_model_unavailable(fallback.id, e)
                 last_error = e
                 logger.warning(f"[fallback] structured fallback {fallback.id} also failed: {type(e).__name__}")
         raise last_error
