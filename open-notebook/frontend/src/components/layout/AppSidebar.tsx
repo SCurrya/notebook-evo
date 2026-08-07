@@ -106,6 +106,7 @@ const getNavigation = (t: TFunction) => [
     title: '系统',
     items: [
       { name: '多Agent系统', href: '/agents', icon: Cpu },
+      { name: '系统健康', href: '/system', icon: Activity },
       { name: '系统日志', href: '/logs', icon: ScrollText },
     ],
   },
