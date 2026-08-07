@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
+import { QRCodeSVG } from 'qrcode.react'
 import { Loader2, Copy, Check, Trash2, Link as LinkIcon, Share2 } from 'lucide-react'
 import { useShareLinks, useCreateShareLink, useRevokeShareLink } from '@/lib/hooks/use-share'
 import type { SharePermission } from '@/lib/api/share'
@@ -67,11 +68,13 @@ export function ShareDialog({
   }, [open])
 
   // 构建共享 URL
+  // 注意：共享页使用 query string (?token=...) 而非动态路由，
+  // 以兼容静态导出（Capacitor 移动端）和 Caddy file_server 场景。
   const buildShareUrl = (token: string) => {
     if (typeof window !== 'undefined') {
-      return `${window.location.origin}/shared/${token}`
+      return `${window.location.origin}/shared?token=${encodeURIComponent(token)}`
     }
-    return `/shared/${token}`
+    return `/shared?token=${encodeURIComponent(token)}`
   }
 
   // 复制链接到剪贴板
@@ -96,6 +99,10 @@ export function ShareDialog({
       },
     })
   }
+
+  // 用于二维码展示的链接（优先取最近创建/列表第一个）
+  const qrToken = links && links.length > 0 ? links[0].token : null
+  const qrUrl = qrToken ? buildShareUrl(qrToken) : null
 
   // 撤销共享链接
   const handleRevoke = (linkId: string) => {
@@ -164,6 +171,22 @@ export function ShareDialog({
             创建共享链接
           </Button>
         </div>
+
+        {/* 二维码（手机扫码即看） */}
+        {qrUrl && (
+          <div className="flex items-center gap-4 rounded-lg border bg-muted/30 p-3">
+            <div className="rounded-md bg-white p-2 shrink-0">
+              <QRCodeSVG value={qrUrl} size={104} level="M" />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <Label className="text-xs">手机扫码访问</Label>
+              <p className="text-xs text-muted-foreground break-all">{qrUrl}</p>
+              <p className="text-[10px] text-muted-foreground">
+                用手机相机 / 浏览器扫码即可打开此共享笔记本
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* 现有链接列表 */}
         <div className="space-y-2">

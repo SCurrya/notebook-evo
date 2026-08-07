@@ -419,6 +419,7 @@ for _required_mod in [
     "knowledge_graph",
     "config",
     "providers",
+    "system",
 ]:
     _include_router_module(_required_mod, required=True)
 

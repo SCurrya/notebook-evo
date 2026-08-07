@@ -27,6 +27,7 @@ def _start_surreal_commands_worker() -> None:
 
     def _worker_main():
         try:
+            os.environ["OPEN_NOTEBOOK_WORKER_RUNNING"] = "1"
             logger.info("Starting in-process surreal-commands worker...")
             import commands  # noqa: F401  # triggers commands/__init__.py
             try:
