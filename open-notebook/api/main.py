@@ -420,6 +420,7 @@ for _required_mod in [
     "config",
     "providers",
     "system",
+    "studio",
 ]:
     _include_router_module(_required_mod, required=True)
 
