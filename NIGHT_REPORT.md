@@ -114,7 +114,24 @@ powershell -File E:\notebook\scripts\demo-mode.ps1
 
 ---
 
-## 六、待办/建议
+## 六、最终状态（07:10 验证）
+
+| 检查项 | 状态 |
+|--------|------|
+| SurrealDB (8000) | ✅ 运行中 |
+| API (5055) | ✅ 运行中（含 worker） |
+| Caddy 网关 (8888/8889) | ✅ 运行中 |
+| 局域网手机访问 | ✅ 200 |
+| Tailscale 手机访问 | ✅ 200 |
+| 公网隧道访问 | ✅ 200 |
+| 系统健康面板 | ✅ ok=True, 7 模型, worker 运行 |
+| 后端测试 | ✅ 360 passed |
+| 最终备份 | ✅ `E:\notebook\backups\backup_20260808_070944` |
+| GitHub | ✅ 已推送 `e4f3e0f` |
+
+---
+
+## 七、待办/建议
 
 - [ ] 手机 PWA 安装测试（Android 添加到主屏幕）
 - [ ] Capacitor APK 重新构建（`npm run build:apk`，需要 Android SDK）
