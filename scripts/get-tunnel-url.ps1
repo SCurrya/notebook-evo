@@ -37,12 +37,22 @@ if ($ts) {
     Write-Host "  [VPN]  Tailscale: 未检测到 PC 节点" -ForegroundColor Yellow
 }
 
-# 3. 局域网
-$wifi = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -like '192.168.*' } | Select-Object -First 1
+# 3. 局域网（按网卡名匹配真实 WLAN，排除 VMware/VirtualBox 等虚拟网卡）
+$wifi = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+    Where-Object { $_.InterfaceAlias -match 'WLAN|Wi-?Fi|Wireless|无线' } |
+    Select-Object -First 1
+if (-not $wifi) {
+    # 兜底：排除虚拟网卡后取第一个 192.168.x.x
+    $wifi = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.IPAddress -like '192.168.*' -and
+            $_.InterfaceAlias -notmatch 'VMware|VirtualBox|vEthernet|VMnet'
+        } | Select-Object -First 1
+}
 if ($wifi) {
     Write-Host "  [局域网] WiFi 网卡: http://$($wifi.IPAddress):8889  (手机连同一 WiFi)" -ForegroundColor Green
 } else {
-    Write-Host "  [局域网] WiFi 网卡: 未检测到 192.168.x.x 地址" -ForegroundColor Yellow
+    Write-Host "  [局域网] WiFi 网卡: 未检测到可用地址" -ForegroundColor Yellow
 }
 
 # 4. 本机
