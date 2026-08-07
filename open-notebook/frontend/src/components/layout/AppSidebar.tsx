@@ -119,7 +119,7 @@ export function AppSidebar() {
   const navigation = getNavigation(t)
   const pathname = usePathname()
   const { logout } = useAuth()
-  const { isCollapsed, toggleCollapse } = useSidebarStore()
+  const { isCollapsed, toggleCollapse, setCollapsed } = useSidebarStore()
   const { openSourceDialog, openNotebookDialog, openPodcastDialog } = useCreateDialogs()
 
   const [createMenuOpen, setCreateMenuOpen] = useState(false)
@@ -127,6 +127,21 @@ export function AppSidebar() {
 
   useEffect(() => {
     setIsMac(navigator.platform.toLowerCase().includes('mac'))
+  }, [])
+
+  // 小屏幕（手机）默认折叠侧边栏，避免占满屏幕
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mql = window.matchMedia('(max-width: 768px)')
+    if (mql.matches && !isCollapsed) {
+      setCollapsed(true)
+    }
+    const onChange = (e: MediaQueryListEvent) => {
+      if (e.matches) setCollapsed(true)
+    }
+    mql.addEventListener('change', onChange)
+    return () => mql.removeEventListener('change', onChange)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleCreateSelection = (target: CreateTarget) => {

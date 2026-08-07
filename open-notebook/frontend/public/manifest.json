@@ -1,46 +1,59 @@
 {
-  "name": "Open Notebook",
-  "short_name": "Notebook",
-  "description": "Privacy-focused research and knowledge management",
+  "name": "Open Notebook - AI 研究助手",
+  "short_name": "AI Notebook",
+  "description": "Privacy-focused research and knowledge management (隐私优先的研究与知识管理)",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "background_color": "#0f0f12",
   "theme_color": "#5b21b6",
   "orientation": "any",
   "scope": "/",
-  "lang": "en",
+  "lang": "zh-CN",
   "categories": ["productivity", "education"],
   "icons": [
     {
-      "src": "/logo.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/logo.svg",
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192x192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/logo.svg",
+      "src": "/icon-maskable-512x512.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ],
   "shortcuts": [
     {
-      "name": "Search",
-      "short_name": "Search",
+      "name": "搜索问答",
+      "short_name": "搜索",
       "url": "/search?mode=search",
-      "description": "Search your knowledge base"
+      "description": "搜索你的知识库"
     },
     {
-      "name": "Notebooks",
-      "short_name": "Notebooks",
+      "name": "笔记本",
+      "short_name": "笔记本",
       "url": "/notebooks"
+    },
+    {
+      "name": "系统健康",
+      "short_name": "健康",
+      "url": "/system",
+      "description": "系统状态总览"
     }
   ]
 }
