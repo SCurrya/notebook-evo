@@ -119,7 +119,13 @@ export function AppSidebar() {
   const navigation = getNavigation(t)
   const pathname = usePathname()
   const { logout } = useAuth()
-  const { isCollapsed, toggleCollapse, setCollapsed } = useSidebarStore()
+  const {
+    isCollapsed,
+    toggleCollapse,
+    setCollapsed,
+    isMobileOpen,
+    setMobileOpen,
+  } = useSidebarStore()
   const { openSourceDialog, openNotebookDialog, openPodcastDialog } = useCreateDialogs()
 
   const [createMenuOpen, setCreateMenuOpen] = useState(false)
@@ -137,12 +143,21 @@ export function AppSidebar() {
       setCollapsed(true)
     }
     const onChange = (e: MediaQueryListEvent) => {
-      if (e.matches) setCollapsed(true)
+      if (e.matches) {
+        setCollapsed(true)
+        setMobileOpen(false)
+      }
     }
     mql.addEventListener('change', onChange)
     return () => mql.removeEventListener('change', onChange)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // 路由变化时关闭移动端抽屉
+  useEffect(() => {
+    if (isMobileOpen) setMobileOpen(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
 
   const handleCreateSelection = (target: CreateTarget) => {
     setCreateMenuOpen(false)
@@ -156,7 +171,7 @@ export function AppSidebar() {
     }
   }
 
-  return (
+  const sidebarContent = (
     <TooltipProvider delayDuration={0}>
       <div
         className={cn(
@@ -419,5 +434,39 @@ export function AppSidebar() {
         </div>
       </div>
     </TooltipProvider>
+  )
+
+  return (
+    <>
+      {/* 桌面端：常驻侧边栏（隐藏在小屏） */}
+      <div className="hidden md:block h-full">{sidebarContent}</div>
+
+      {/* 移动端：抽屉（Drawer），带遮罩 */}
+      <div
+        className={cn(
+          'md:hidden fixed inset-0 z-50',
+          isMobileOpen ? 'pointer-events-auto' : 'pointer-events-none'
+        )}
+        aria-hidden={!isMobileOpen}
+      >
+        {/* 遮罩 */}
+        <div
+          className={cn(
+            'absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300',
+            isMobileOpen ? 'opacity-100' : 'opacity-0'
+          )}
+          onClick={() => setMobileOpen(false)}
+        />
+        {/* 抽屉本体 */}
+        <div
+          className={cn(
+            'absolute left-0 top-0 bottom-0 h-full transition-transform duration-300 ease-emphasized',
+            isMobileOpen ? 'translate-x-0' : '-translate-x-full'
+          )}
+        >
+          {sidebarContent}
+        </div>
+      </div>
+    </>
   )
 }
