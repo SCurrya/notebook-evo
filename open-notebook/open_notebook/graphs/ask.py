@@ -25,6 +25,8 @@ FALLBACK_MODEL_HINTS = (
     "gpt-5.4",
     "gpt-4",
     "deepseek",
+    "nemotron",
+    "free",
 )
 
 
