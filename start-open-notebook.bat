@@ -9,7 +9,7 @@ setlocal EnableDelayedExpansion
 
 REM ---- Paths (edit these if you installed elsewhere) ----
 set "ROOT=E:\notebook\open-notebook"
-set "DATA_ROOT=E:\notebook\open-notebook-data"
+set "DATA_ROOT=E:\notebook\open-notebook\data"
 set "SURREAL_BIN=C:\Tools\surreal\surreal.exe"
 
 REM ---- Derived env (consumed by config.py / surreal-commands-worker) ----
@@ -93,7 +93,7 @@ echo.
 REM ---- 1. SurrealDB (port 8000) ----
 echo [1/4] Starting SurrealDB on 127.0.0.1:8000 ...
 start "OpenNotebook-DB" cmd /k ^
-    "%SURREAL_BIN% start --user root --pass root --bind 127.0.0.1:8000 rocksdb:%DATA_ROOT%\surrealdb\mydatabase.db"
+    "%SURREAL_BIN% start --user root --pass root --bind 0.0.0.0:8000 rocksdb:%ROOT%\surreal_data\db"
 
 echo       Waiting for SurrealDB to be ready...
 set "DB_READY=0"

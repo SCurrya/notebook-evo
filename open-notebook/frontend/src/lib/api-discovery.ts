@@ -19,6 +19,9 @@ function getCandidateUrls(): string[] {
   candidates.push('http://LAN_IP_PLACEHOLDER:5055')
   // LAN via Caddy (Caddy adds CORS headers + serves /health)
   candidates.push('http://LAN_IP_PLACEHOLDER:8889')
+  // Ethernet fallback (PC wired to router, slower to timeout)
+  candidates.push('http://ETH_IP_PLACEHOLDER:5055')
+  candidates.push('http://ETH_IP_PLACEHOLDER:8889')
   // Tailscale direct API (works anywhere with Tailscale VPN)
   candidates.push('http://TAILSCALE_IP_PLACEHOLDER:5055')
   // Tailscale via Caddy
