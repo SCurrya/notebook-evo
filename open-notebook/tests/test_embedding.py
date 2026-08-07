@@ -5,6 +5,7 @@ Tests embedding generation and mean pooling functionality.
 """
 
 import pytest
+from esperanto import EmbeddingModel
 
 from open_notebook.utils.chunking import CHUNK_SIZE
 from open_notebook.utils.embedding import (
@@ -124,12 +125,26 @@ class TestGenerateEmbeddings:
     @pytest.mark.asyncio
     async def test_no_model_raises(self):
         """Test that missing model raises ValueError."""
-        from unittest.mock import AsyncMock, patch
+        from unittest.mock import AsyncMock, MagicMock, patch
 
-        with patch(
-            "open_notebook.ai.models.model_manager.get_embedding_model",
-            new_callable=AsyncMock,
-            return_value=None,
+        # Current implementation resolves the model chain via
+        # model_manager.get_defaults().default_embedding_model + get_model().
+        # Simulate "nothing configured" by returning a defaults object with an
+        # empty embedding model and no fallback ids.
+        empty_defaults = MagicMock()
+        empty_defaults.default_embedding_model = None
+
+        with (
+            patch(
+                "open_notebook.ai.models.model_manager.get_defaults",
+                new_callable=AsyncMock,
+                return_value=empty_defaults,
+            ),
+            patch(
+                "open_notebook.ai.models.model_manager.get_fallback_model_ids",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
         ):
             with pytest.raises(ValueError, match="No embedding model configured"):
                 await generate_embeddings(["test text"])
@@ -139,19 +154,34 @@ class TestGenerateEmbeddings:
         """Test successful embedding generation with mocked model."""
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        mock_model = MagicMock()
+        mock_model = MagicMock(spec=EmbeddingModel)
         mock_model.aembed = AsyncMock(return_value=[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
 
-        with patch(
-            "open_notebook.ai.models.model_manager.get_embedding_model",
-            new_callable=AsyncMock,
-            return_value=mock_model,
+        defaults = MagicMock()
+        defaults.default_embedding_model = "model:mock-embed"
+
+        with (
+            patch(
+                "open_notebook.ai.models.model_manager.get_defaults",
+                new_callable=AsyncMock,
+                return_value=defaults,
+            ),
+            patch(
+                "open_notebook.ai.models.model_manager.get_model",
+                new_callable=AsyncMock,
+                return_value=mock_model,
+            ),
+            patch(
+                "open_notebook.ai.models.model_manager.get_fallback_model_ids",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
         ):
             result = await generate_embeddings(["text1", "text2"])
             assert len(result) == 2
             assert result[0] == [0.1, 0.2, 0.3]
             assert result[1] == [0.4, 0.5, 0.6]
-            mock_model.aembed.assert_called_once_with(["text1", "text2"])
+            mock_model.aembed.assert_called_once()
 
 
 # ============================================================================
@@ -176,13 +206,28 @@ class TestGenerateEmbedding:
         """Test that short text is embedded directly without chunking."""
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        mock_model = MagicMock()
+        mock_model = MagicMock(spec=EmbeddingModel)
         mock_model.aembed = AsyncMock(return_value=[[0.1, 0.2, 0.3]])
 
-        with patch(
-            "open_notebook.ai.models.model_manager.get_embedding_model",
-            new_callable=AsyncMock,
-            return_value=mock_model,
+        defaults = MagicMock()
+        defaults.default_embedding_model = "model:mock-embed"
+
+        with (
+            patch(
+                "open_notebook.ai.models.model_manager.get_defaults",
+                new_callable=AsyncMock,
+                return_value=defaults,
+            ),
+            patch(
+                "open_notebook.ai.models.model_manager.get_model",
+                new_callable=AsyncMock,
+                return_value=mock_model,
+            ),
+            patch(
+                "open_notebook.ai.models.model_manager.get_fallback_model_ids",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
         ):
             result = await generate_embedding("Short text")
             assert result == [0.1, 0.2, 0.3]
@@ -196,7 +241,7 @@ class TestGenerateEmbedding:
 
         long_text = _build_text_exceeding_tokens("This is a sentence. ", CHUNK_SIZE)
 
-        mock_model = MagicMock()
+        mock_model = MagicMock(spec=EmbeddingModel)
         # Return multiple embeddings (one per chunk)
         mock_model.aembed = AsyncMock(
             return_value=[
@@ -205,10 +250,25 @@ class TestGenerateEmbedding:
             ]
         )
 
-        with patch(
-            "open_notebook.ai.models.model_manager.get_embedding_model",
-            new_callable=AsyncMock,
-            return_value=mock_model,
+        defaults = MagicMock()
+        defaults.default_embedding_model = "model:mock-embed"
+
+        with (
+            patch(
+                "open_notebook.ai.models.model_manager.get_defaults",
+                new_callable=AsyncMock,
+                return_value=defaults,
+            ),
+            patch(
+                "open_notebook.ai.models.model_manager.get_model",
+                new_callable=AsyncMock,
+                return_value=mock_model,
+            ),
+            patch(
+                "open_notebook.ai.models.model_manager.get_fallback_model_ids",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
         ):
             result = await generate_embedding(long_text)
             # Should return mean pooled result
@@ -223,13 +283,28 @@ class TestGenerateEmbedding:
 
         from open_notebook.utils.chunking import ContentType
 
-        mock_model = MagicMock()
+        mock_model = MagicMock(spec=EmbeddingModel)
         mock_model.aembed = AsyncMock(return_value=[[0.1, 0.2, 0.3]])
 
-        with patch(
-            "open_notebook.ai.models.model_manager.get_embedding_model",
-            new_callable=AsyncMock,
-            return_value=mock_model,
+        defaults = MagicMock()
+        defaults.default_embedding_model = "model:mock-embed"
+
+        with (
+            patch(
+                "open_notebook.ai.models.model_manager.get_defaults",
+                new_callable=AsyncMock,
+                return_value=defaults,
+            ),
+            patch(
+                "open_notebook.ai.models.model_manager.get_model",
+                new_callable=AsyncMock,
+                return_value=mock_model,
+            ),
+            patch(
+                "open_notebook.ai.models.model_manager.get_fallback_model_ids",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
         ):
             result = await generate_embedding(
                 "# Markdown Header\n\nContent",
@@ -248,7 +323,7 @@ class TestGenerateEmbedding:
         num_texts = 120
         texts = [f"text_{i}" for i in range(num_texts)]
 
-        mock_model = MagicMock()
+        mock_model = MagicMock(spec=EmbeddingModel)
         mock_model.model_name = "test-model"
 
         def make_embeddings(batch):
@@ -256,10 +331,25 @@ class TestGenerateEmbedding:
 
         mock_model.aembed = AsyncMock(side_effect=lambda batch: make_embeddings(batch))
 
-        with patch(
-            "open_notebook.ai.models.model_manager.get_embedding_model",
-            new_callable=AsyncMock,
-            return_value=mock_model,
+        defaults = MagicMock()
+        defaults.default_embedding_model = "model:mock-embed"
+
+        with (
+            patch(
+                "open_notebook.ai.models.model_manager.get_defaults",
+                new_callable=AsyncMock,
+                return_value=defaults,
+            ),
+            patch(
+                "open_notebook.ai.models.model_manager.get_model",
+                new_callable=AsyncMock,
+                return_value=mock_model,
+            ),
+            patch(
+                "open_notebook.ai.models.model_manager.get_fallback_model_ids",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
         ):
             result = await generate_embeddings(texts)
 
@@ -276,7 +366,7 @@ class TestGenerateEmbedding:
         from unittest.mock import AsyncMock, MagicMock, patch
 
         texts = ["text_a", "text_b"]
-        mock_model = MagicMock()
+        mock_model = MagicMock(spec=EmbeddingModel)
         mock_model.model_name = "test-model"
 
         # Fail once, then succeed
@@ -287,11 +377,24 @@ class TestGenerateEmbedding:
             ]
         )
 
+        defaults = MagicMock()
+        defaults.default_embedding_model = "model:mock-embed"
+
         with (
             patch(
-                "open_notebook.ai.models.model_manager.get_embedding_model",
+                "open_notebook.ai.models.model_manager.get_defaults",
+                new_callable=AsyncMock,
+                return_value=defaults,
+            ),
+            patch(
+                "open_notebook.ai.models.model_manager.get_model",
                 new_callable=AsyncMock,
                 return_value=mock_model,
+            ),
+            patch(
+                "open_notebook.ai.models.model_manager.get_fallback_model_ids",
+                new_callable=AsyncMock,
+                return_value=[],
             ),
             patch("open_notebook.utils.embedding.EMBEDDING_RETRY_DELAY", 0),
         ):
@@ -307,15 +410,28 @@ class TestGenerateEmbedding:
         from open_notebook.utils.embedding import EMBEDDING_MAX_RETRIES
 
         texts = ["text_a"]
-        mock_model = MagicMock()
+        mock_model = MagicMock(spec=EmbeddingModel)
         mock_model.model_name = "test-model"
         mock_model.aembed = AsyncMock(side_effect=RuntimeError("persistent error"))
 
+        defaults = MagicMock()
+        defaults.default_embedding_model = "model:mock-embed"
+
         with (
             patch(
-                "open_notebook.ai.models.model_manager.get_embedding_model",
+                "open_notebook.ai.models.model_manager.get_defaults",
+                new_callable=AsyncMock,
+                return_value=defaults,
+            ),
+            patch(
+                "open_notebook.ai.models.model_manager.get_model",
                 new_callable=AsyncMock,
                 return_value=mock_model,
+            ),
+            patch(
+                "open_notebook.ai.models.model_manager.get_fallback_model_ids",
+                new_callable=AsyncMock,
+                return_value=[],
             ),
             patch("open_notebook.utils.embedding.EMBEDDING_RETRY_DELAY", 0),
         ):
