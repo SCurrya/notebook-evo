@@ -253,15 +253,16 @@ else:
     logger.info(f"CORS allowed origins: {CORS_ALLOWED_ORIGINS}")
 
 # Add password authentication middleware first
-# Exclude /api/auth/status and /api/config from authentication
+# Exclude /api/auth/status and /api/config from authentication (the frontend
+# needs them to detect the backend & auth state before login). Swagger docs
+# (/docs, /openapi.json, /redoc) are intentionally NOT excluded: on a LAN or
+# Tailscale network they would otherwise leak the full API schema to anyone
+# who can reach the port. Docs remain reachable with the password.
 app.add_middleware(
     PasswordAuthMiddleware,
     excluded_paths=[
         "/",
         "/health",
-        "/docs",
-        "/openapi.json",
-        "/redoc",
         "/api/auth/status",
         "/api/config",
     ],
