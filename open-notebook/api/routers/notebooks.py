@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import PlainTextResponse
 from loguru import logger
 
 from api.models import (
@@ -21,11 +22,11 @@ router = APIRouter()
 async def _get_notebook_counts(notebook_id: str) -> tuple[int, int]:
     """Get notebook source/note counts from the relationship tables."""
     source_result = await repo_query(
-        "SELECT count() as count FROM reference WHERE in = $notebook_id GROUP ALL",
+        "SELECT count() as count FROM reference WHERE out = $notebook_id GROUP ALL",
         {"notebook_id": ensure_record_id(notebook_id)},
     )
     note_result = await repo_query(
-        "SELECT count() as count FROM artifact WHERE in = $notebook_id GROUP ALL",
+        "SELECT count() as count FROM artifact WHERE out = $notebook_id GROUP ALL",
         {"notebook_id": ensure_record_id(notebook_id)},
     )
     source_count = source_result[0]["count"] if source_result else 0
@@ -408,4 +409,99 @@ async def delete_notebook(
         )
         raise HTTPException(
             status_code=500, detail=f"Error deleting notebook: {str(e)}"
+        )
+
+
+@router.get("/notebooks/{notebook_id}/export", response_class=PlainTextResponse)
+async def export_notebook(notebook_id: str):
+    """Export a notebook as a self-contained Markdown document.
+
+    Includes the notebook metadata, each source's title/content, notes, and
+    source insights. The document is plain Markdown so it can be shared,
+    archived, or re-imported manually.
+    """
+    log = get_logger("notebooks_api", Operation.READ, f"notebook_id={notebook_id} export")
+    log.debug("-> export_notebook()")
+    try:
+        notebook = await Notebook.get(notebook_id)
+        if not notebook:
+            raise HTTPException(status_code=404, detail="Notebook not found")
+
+        sources = await notebook.get_sources(include_full_text=True)
+        notes = await notebook.get_notes(include_content=True)
+
+        lines: list[str] = []
+        lines.append(f"# {notebook.name}")
+        lines.append("")
+        if notebook.description:
+            lines.append(f"> {notebook.description}")
+            lines.append("")
+
+        lines.append(f"*Exported: {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M')}*")
+        lines.append("")
+
+        # Sources
+        lines.append("## Sources")
+        lines.append("")
+        if not sources:
+            lines.append("_No sources in this notebook._")
+            lines.append("")
+        for i, src in enumerate(sources, 1):
+            lines.append(f"### {i}. {getattr(src, 'title', 'Untitled')}")
+            lines.append("")
+            full_text = getattr(src, "full_text", "") or ""
+            if full_text:
+                # Keep it readable: first 8000 chars per source.
+                content = full_text[:8000]
+                if len(full_text) > 8000:
+                    content += "\n\n_[content truncated]_"
+                lines.append(content)
+                lines.append("")
+            else:
+                lines.append("_No content available._")
+                lines.append("")
+
+        # Notes
+        lines.append("## Notes")
+        lines.append("")
+        if not notes:
+            lines.append("_No notes in this notebook._")
+            lines.append("")
+        for j, note in enumerate(notes, 1):
+            lines.append(f"### {j}. {getattr(note, 'title', 'Note')}")
+            lines.append("")
+            content = getattr(note, "content", "") or ""
+            if content:
+                lines.append(content)
+                lines.append("")
+
+        # Insights (gather from all sources)
+        lines.append("## Insights")
+        lines.append("")
+        insight_count = 0
+        for src in sources:
+            try:
+                insights = await src.get_insights()
+            except Exception:
+                insights = []
+            for insight in insights:
+                insight_count += 1
+                lines.append(f"### {insight_count}. {getattr(insight, 'insight_type', 'Insight')}")
+                lines.append("")
+                icontent = getattr(insight, "content", "") or ""
+                lines.append(icontent)
+                lines.append("")
+        if insight_count == 0:
+            lines.append("_No insights generated._")
+            lines.append("")
+
+        markdown = "\n".join(lines)
+        log.bind(result=Result.SUCCESS).info(f"<- export_notebook() {len(sources)} sources, {len(notes)} notes")
+        return markdown
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error exporting notebook {notebook_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error exporting notebook: {str(e)}"
         )

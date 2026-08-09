@@ -111,6 +111,12 @@ export const zhCN = {
     finalAnswer: "最终回答",
     notebookLabel: "笔记本: {name}",
     itemNotFound: "未找到该 {type}",
+    copyAnswer: "复制回答",
+    copyAnswerSuccess: "回答已复制到剪贴板",
+    copyAnswerFailed: "复制失败",
+    exportAnswer: "导出 Markdown",
+    exportAnswerSuccess: "回答已导出为 Markdown",
+    copyFullAnswer: "复制全部（含推理过程）",
     accessibility: {
       transformationViews: "转换视图",
       searchKB: "向知识库提问或搜索",

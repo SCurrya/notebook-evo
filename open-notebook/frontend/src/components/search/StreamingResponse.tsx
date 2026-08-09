@@ -2,16 +2,88 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { CheckCircle, Sparkles, Lightbulb, ChevronDown } from 'lucide-react'
-import { useState } from 'react'
+import { CheckCircle, Sparkles, Lightbulb, ChevronDown, Copy, Download, Check } from 'lucide-react'
+import { useCallback, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { convertReferencesToMarkdownLinks, createReferenceLinkComponent } from '@/lib/utils/source-references'
 import { useModalManager } from '@/lib/hooks/use-modal-manager'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import { toast } from 'sonner'
+
+// Build a complete markdown document from the Ask response parts.
+function buildAnswerMarkdown(
+  strategy: StrategyData | null,
+  answers: string[],
+  finalAnswer: string | null
+): string {
+  const parts: string[] = []
+  if (strategy?.reasoning) {
+    parts.push('## 推理过程 / Reasoning')
+    parts.push('')
+    parts.push(strategy.reasoning)
+    parts.push('')
+    if (strategy.searches.length > 0) {
+      parts.push('### 搜索计划 / Search Plan')
+      strategy.searches.forEach((s, i) => {
+        parts.push(`${i + 1}. **${s.term}**${s.instructions ? ` — ${s.instructions}` : ''}`)
+      })
+      parts.push('')
+    }
+  }
+  if (answers.length > 0) {
+    parts.push('## 各来源回答 / Individual Answers')
+    answers.forEach((a, i) => {
+      parts.push(`### 回答 ${i + 1} / Answer ${i + 1}`)
+      parts.push(a)
+      parts.push('')
+    })
+  }
+  if (finalAnswer) {
+    parts.push('## 最终回答 / Final Answer')
+    parts.push('')
+    parts.push(finalAnswer)
+  }
+  return parts.join('\n').trim()
+}
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    // Fallback for older browsers / non-secure contexts
+    try {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      const ok = document.execCommand('copy')
+      document.body.removeChild(textarea)
+      return ok
+    } catch {
+      return false
+    }
+  }
+}
+
+function downloadMarkdown(filename: string, text: string): void {
+  const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
 
 interface StrategyData {
   reasoning: string
@@ -50,11 +122,47 @@ export function StreamingResponse({
     }
   }
 
+  const [copied, setCopied] = useState(false)
+
+  const handleCopyAnswer = useCallback(async () => {
+    if (!finalAnswer) return
+    const ok = await copyText(finalAnswer)
+    if (ok) {
+      setCopied(true)
+      toast.success(t('common.copyAnswerSuccess'))
+      setTimeout(() => setCopied(false), 2000)
+    } else {
+      toast.error(t('common.copyAnswerFailed'))
+    }
+  }, [finalAnswer, t])
+
+  const handleCopyFullAnswer = useCallback(async () => {
+    const md = buildAnswerMarkdown(strategy, answers, finalAnswer)
+    if (!md) return
+    const ok = await copyText(md)
+    if (ok) {
+      setCopied(true)
+      toast.success(t('common.copyAnswerSuccess'))
+      setTimeout(() => setCopied(false), 2000)
+    } else {
+      toast.error(t('common.copyAnswerFailed'))
+    }
+  }, [strategy, answers, finalAnswer, t])
+
+  const handleExportMarkdown = useCallback(() => {
+    const md = buildAnswerMarkdown(strategy, answers, finalAnswer)
+    if (!md) return
+    const date = new Date().toISOString().slice(0, 10)
+    downloadMarkdown(`ask-answer-${date}.md`, md)
+    toast.success(t('common.exportAnswerSuccess'))
+  }, [strategy, answers, finalAnswer, t])
+
   if (!strategy && !answers.length && !finalAnswer && !isStreaming) {
     return null
   }
 
   return (
+    <TooltipProvider delayDuration={200}>
     <div
       className="space-y-4 mt-6 max-h-[60vh] overflow-y-auto pr-2"
       role="region"
@@ -133,9 +241,55 @@ export function StreamingResponse({
       {finalAnswer && (
         <Card className="border-primary">
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-primary" />
-              {t('common.finalAnswer')}
+            <CardTitle className="text-base flex items-center justify-between gap-2 flex-wrap">
+              <span className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-primary" />
+                {t('common.finalAnswer')}
+              </span>
+              <div className="flex items-center gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={handleCopyAnswer}
+                      aria-label={t('common.copyAnswer')}
+                    >
+                      {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('common.copyAnswer')}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={handleCopyFullAnswer}
+                      aria-label={t('common.copyFullAnswer')}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('common.copyFullAnswer')}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={handleExportMarkdown}
+                      aria-label={t('common.exportAnswer')}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('common.exportAnswer')}</TooltipContent>
+                </Tooltip>
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -155,6 +309,7 @@ export function StreamingResponse({
         </div>
       )}
     </div>
+    </TooltipProvider>
   )
 }
 

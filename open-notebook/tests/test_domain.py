@@ -167,7 +167,7 @@ class TestNotebookDomain:
         assert len(sources) == 1
         assert sources[0].id == "source:first"
         assert sources[0].title == "First Source"
-        assert "select out as source from reference where in=$id" in mock_query.await_args.args[0]
+        assert "select in as source from reference where out=$id" in mock_query.await_args.args[0]
 
     @pytest.mark.asyncio
     async def test_notebook_get_notes_uses_artifact_relationships(self):
@@ -190,7 +190,7 @@ class TestNotebookDomain:
         assert len(notes) == 1
         assert notes[0].id == "note:first"
         assert notes[0].title == "First Note"
-        assert "select out as note from artifact where in=$id" in mock_query.await_args.args[0]
+        assert "select in as note from artifact where out=$id" in mock_query.await_args.args[0]
 
     @pytest.mark.asyncio
     async def test_notebook_delete_preview_uses_inbound_relationship_counts(self):
@@ -213,9 +213,9 @@ class TestNotebookDomain:
             "shared_source_count": 1,
         }
         normalize = lambda q: " ".join(q.lower().split())
-        assert "from artifact where in = $notebook_id" in normalize(mock_query.await_args_list[0].args[0])
-        assert "select value out from reference where in = $notebook_id" in normalize(mock_query.await_args_list[1].args[0])
-        assert "from reference where out = $source_id and in != $notebook_id" in normalize(mock_query.await_args_list[2].args[0])
+        assert "from artifact where out = $notebook_id" in normalize(mock_query.await_args_list[0].args[0])
+        assert "select value in from reference where out = $notebook_id" in normalize(mock_query.await_args_list[1].args[0])
+        assert "from reference where in = $source_id and out != $notebook_id" in normalize(mock_query.await_args_list[2].args[0])
 
     @pytest.mark.asyncio
     async def test_notebook_delete_uses_inbound_relationship_cleanup(self):
@@ -242,8 +242,8 @@ class TestNotebookDomain:
             "unlinked_sources": 1,
         }
         all_queries = " \n".join(call.args[0].lower() for call in mock_query.await_args_list)
-        assert "delete artifact where in = $notebook_id" in all_queries
-        assert "delete reference where in = $notebook_id" in all_queries
+        assert "delete artifact where out = $notebook_id" in all_queries
+        assert "delete reference where out = $notebook_id" in all_queries
 
     @pytest.mark.asyncio
     async def test_notebook_get_context_includes_note_content(self):

@@ -33,7 +33,7 @@ class Notebook(ObjectModel):
             srcs = await repo_query(
                 f"""
                 select *{source_projection} from (
-                    select out as source from reference where in=$id
+                    select in as source from reference where out=$id
                     fetch source
                 ) order by source.updated desc
             """,
@@ -55,7 +55,7 @@ class Notebook(ObjectModel):
             srcs = await repo_query(
                 f"""
             select *{note_projection} from (
-                select out as note from artifact where in=$id
+                select in as note from artifact where out=$id
                 fetch note
             ) order by note.updated desc
             """,
@@ -154,14 +154,14 @@ class Notebook(ObjectModel):
 
     async def _get_related_source_ids(self) -> List[str]:
         source_ids = await repo_query(
-            "SELECT VALUE out FROM reference WHERE in = $notebook_id",
+            "SELECT VALUE in FROM reference WHERE out = $notebook_id",
             {"notebook_id": ensure_record_id(self.id)},
         )
         return [str(source_id) for source_id in source_ids] if source_ids else []
 
     async def _get_related_note_ids(self) -> List[str]:
         note_ids = await repo_query(
-            "SELECT VALUE out FROM artifact WHERE in = $notebook_id",
+            "SELECT VALUE in FROM artifact WHERE out = $notebook_id",
             {"notebook_id": ensure_record_id(self.id)},
         )
         return [str(note_id) for note_id in note_ids] if note_ids else []
@@ -171,7 +171,7 @@ class Notebook(ObjectModel):
             """
             SELECT count() as count
             FROM reference
-            WHERE out = $source_id AND in != $notebook_id
+            WHERE in = $source_id AND out != $notebook_id
             GROUP ALL
             """,
             {
@@ -195,7 +195,7 @@ class Notebook(ObjectModel):
 
             # Count notes
             note_result = await repo_query(
-                "SELECT count() as count FROM artifact WHERE in = $notebook_id GROUP ALL",
+                "SELECT count() as count FROM artifact WHERE out = $notebook_id GROUP ALL",
                 {"notebook_id": notebook_id},
             )
             note_count = note_result[0]["count"] if note_result else 0
@@ -254,7 +254,7 @@ class Notebook(ObjectModel):
 
             # Delete artifact relationships
             await repo_query(
-                "DELETE artifact WHERE in = $notebook_id",
+                "DELETE artifact WHERE out = $notebook_id",
                 {"notebook_id": notebook_id},
             )
 
@@ -281,7 +281,7 @@ class Notebook(ObjectModel):
 
             # Delete reference relationships (unlink all sources)
             await repo_query(
-                "DELETE reference WHERE in = $notebook_id",
+                "DELETE reference WHERE out = $notebook_id",
                 {"notebook_id": notebook_id},
             )
             logger.info(

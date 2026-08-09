@@ -111,6 +111,12 @@ export const enUS = {
     finalAnswer: "Final Answer",
     notebookLabel: "Notebook: {name}",
     itemNotFound: "This {type} could not be found",
+    copyAnswer: "Copy Answer",
+    copyAnswerSuccess: "Answer copied to clipboard",
+    copyAnswerFailed: "Copy failed",
+    exportAnswer: "Export Markdown",
+    exportAnswerSuccess: "Answer exported as Markdown",
+    copyFullAnswer: "Copy Full Answer (with reasoning)",
     accessibility: {
       transformationViews: "Transformation views",
       searchKB: "Ask or search your knowledge base",
