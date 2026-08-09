@@ -96,8 +96,8 @@ class ShareLink(ObjectModel):
             "share_domain", Operation.READ, f"token=***"
         ).debug("-> get_by_token()")
         results = await repo_query(
-            "SELECT * FROM share_link WHERE token = $token LIMIT 1",
-            {"token": token},
+            "SELECT * FROM share_link WHERE token = $share_token LIMIT 1",
+            {"share_token": token},
         )
         if not results:
             return None

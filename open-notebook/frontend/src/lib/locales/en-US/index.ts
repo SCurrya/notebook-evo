@@ -91,7 +91,6 @@ export const enUS = {
     description: "Description",
     saveToNote: "Save to note",
     copyToClipboard: "Copy to clipboard",
-    close: "Close",
     insights: "Insights",
     progress: "Progress",
     deleting: "Deleting...",

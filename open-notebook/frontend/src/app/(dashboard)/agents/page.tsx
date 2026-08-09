@@ -69,6 +69,7 @@ export default function AgentsPage() {
   const [newTaskDesc, setNewTaskDesc] = useState('')
   const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>(2)
   const [newTaskCaps, setNewTaskCaps] = useState('')
+  const [newTaskDeps, setNewTaskDeps] = useState('')
   const [newTaskPayload, setNewTaskPayload] = useState('')
 
   const statsQuery = useAgentStats()

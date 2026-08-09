@@ -714,8 +714,9 @@ async def get_source(source_id: str):
         embedded_chunks = await source.get_embedded_chunks()
 
         # Get associated notebooks
+        # reference schema: source->reference->notebook (in=source, out=notebook)
         notebooks_query = await repo_query(
-            "SELECT VALUE in FROM reference WHERE out = $source_id",
+            "SELECT VALUE out FROM reference WHERE in = $source_id",
             {"source_id": ensure_record_id(source.id or source_id)},
         )
         notebook_ids = (
@@ -980,7 +981,8 @@ async def retry_source_processing(source_id: str):
                 # Continue with retry if we can't check status
 
         # Get notebooks that this source belongs to
-        query = "SELECT VALUE in FROM reference WHERE out = $source_id"
+        # reference schema: source->reference->notebook (in=source, out=notebook)
+        query = "SELECT VALUE out FROM reference WHERE in = $source_id"
         references = await repo_query(query, {"source_id": source_id})
         notebook_ids = [str(notebook_id) for notebook_id in references]
 

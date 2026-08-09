@@ -91,7 +91,6 @@ export const zhCN = {
     description: "描述",
     saveToNote: "保存到笔记",
     copyToClipboard: "复制到剪贴板",
-    close: "关闭",
     insights: "见解",
     progress: "进度",
     deleting: "正在删除...",

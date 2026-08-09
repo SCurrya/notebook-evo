@@ -87,7 +87,7 @@ export function useSourceChat(sourceId: string) {
   const deleteSessionMutation = useMutation({
     mutationFn: (sessionId: string) => 
       sourceChatApi.deleteSession(sourceId, sessionId),
-    onSuccess: (_, deletedId) => {
+    onSuccess: (_: unknown, deletedId: string) => {
       queryClient.invalidateQueries({ queryKey: ['sourceChatSessions', sourceId] })
       if (currentSessionId === deletedId) {
         setCurrentSessionId(null)
@@ -236,7 +236,7 @@ export function useSourceChat(sourceId: string) {
   return {
     // State
     sessions,
-    currentSession: sessions.find(s => s.id === currentSessionId),
+    currentSession: sessions.find((s: { id: string }) => s.id === currentSessionId),
     currentSessionId,
     messages,
     isStreaming,

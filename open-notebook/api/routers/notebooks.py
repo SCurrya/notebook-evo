@@ -299,8 +299,9 @@ async def add_source_to_notebook(notebook_id: str, source_id: str):
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Check if reference already exists (idempotency)
+        # RELATE creates source->reference->notebook, so in=source, out=notebook
         existing_ref = await repo_query(
-            "SELECT * FROM reference WHERE out = $source_id AND in = $notebook_id",
+            "SELECT * FROM reference WHERE in = $source_id AND out = $notebook_id",
             {
                 "notebook_id": ensure_record_id(notebook_id),
                 "source_id": ensure_record_id(source_id),
@@ -344,8 +345,9 @@ async def remove_source_from_notebook(notebook_id: str, source_id: str):
             raise HTTPException(status_code=404, detail="Notebook not found")
 
         # Delete the reference record linking source to notebook
+        # reference schema: source->reference->notebook (in=source, out=notebook)
         await repo_query(
-            "DELETE reference WHERE out = $source_id AND in = $notebook_id",
+            "DELETE reference WHERE in = $source_id AND out = $notebook_id",
             {
                 "notebook_id": ensure_record_id(notebook_id),
                 "source_id": ensure_record_id(source_id),
