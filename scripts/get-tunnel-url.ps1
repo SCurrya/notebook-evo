@@ -12,6 +12,8 @@ Write-Host ""
 
 # 1. Cloudflare Tunnel 公网地址
 $tunnelLogs = @(
+    'E:\notebook\cloudflared-web.log.err',
+    'E:\notebook\cloudflared-api.log.err',
     'E:\notebook\downloads\tunnel.log',
     'E:\notebook\downloads\tunnel.err.log'
 )
