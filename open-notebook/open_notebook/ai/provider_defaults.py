@@ -18,7 +18,7 @@ SENSENOVA_EMBEDDING_MODEL = "sensenova-embedding"
 OPENROUTER_CHAT_FALLBACK_MODEL = "deepseek/deepseek-v4-flash"
 OPENROUTER_EMBEDDING_FALLBACK_MODEL = "qwen/qwen3-embedding-4b"
 
-SENSENOVA_CHAT_BASE_URL = "https://api.sensenova.cn/compatible-mode/v2"
+SENSENOVA_CHAT_BASE_URL = "https://token.sensenova.cn/v1"
 SENSENOVA_EMBEDDING_URL = "https://api.sensenova.cn/v1/llm/embeddings"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
@@ -26,6 +26,28 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 def _env(name: str) -> Optional[str]:
     value = os.getenv(name, "").strip()
     return value or None
+
+
+def provider_priority_order() -> list[str]:
+    """Provider priority from env MODEL_PROVIDER_PRIORITY.
+
+    Comma-separated list, e.g. ``sensenova,openai_compatible,openrouter``.
+    Providers not listed keep a stable default ordering at the end.
+    Returns normalized provider ids (lowercase, dashes).
+    """
+    raw = os.getenv("MODEL_PROVIDER_PRIORITY", "").strip()
+    if not raw:
+        return []
+    result: list[str] = []
+    for item in raw.split(","):
+        p = item.strip().replace("_", "-").lower()
+        if p and p not in result:
+            result.append(p)
+    return result
+
+
+def _norm_provider(p: Optional[str]) -> str:
+    return (p or "").replace("_", "-").lower()
 
 
 async def _get_first_credential(provider: str) -> Optional[Credential]:
@@ -154,6 +176,8 @@ async def ensure_preferred_provider_setup() -> Dict[str, Optional[str]]:
     """
     sensenova_key = _env("SENSENOVA_API_KEY")
     openrouter_key = _env("OPENROUTER_API_KEY")
+    xcode_key = _env("OPENAI_COMPATIBLE_API_KEY")
+    xcode_base = _env("OPENAI_COMPATIBLE_BASE_URL")
 
     # We only make SenseNova the default provider when its key is present
     # AND actually works. Otherwise (e.g. invalid/expired key → 403) we keep
@@ -185,6 +209,35 @@ async def ensure_preferred_provider_setup() -> Dict[str, Optional[str]]:
         except Exception as error:
             logger.warning("SenseNova chat probe failed: {}", type(error).__name__)
             sensenova_works = False
+
+    # Probe xcode.best (openai_compatible) availability so we can honour
+    # MODEL_PROVIDER_PRIORITY: when the user ranks xcode.best first AND it is
+    # reachable, we prefer its models; otherwise we fall back to SenseNova.
+    xcode_works = False
+    if xcode_key and xcode_base:
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                resp = await client.post(
+                    xcode_base.rstrip("/") + "/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {xcode_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": "gpt-5.6-luna",
+                        "messages": [{"role": "user", "content": "ping"}],
+                        "max_tokens": 1,
+                    },
+                )
+                xcode_works = resp.status_code == 200
+                if not xcode_works:
+                    logger.warning(
+                        "xcode.best chat probe failed HTTP {}",
+                        resp.status_code,
+                    )
+        except Exception as error:
+            logger.warning("xcode.best chat probe failed: {}", type(error).__name__)
+            xcode_works = False
 
     sensenova_cred = None
     if sensenova_works:
@@ -242,22 +295,50 @@ async def ensure_preferred_provider_setup() -> Dict[str, Optional[str]]:
             credential_id=sensenova_cred_id,
         )
 
-    # Only override defaults when SenseNova actually works.
-    if sensenova_works:
-        defaults.default_chat_model = chat_model_id
-        defaults.default_tools_model = chat_model_id
-        defaults.large_context_model = chat_model_id
+    # Choose the default chat provider honouring MODEL_PROVIDER_PRIORITY.
+    # Each provider is only "usable" if its probe succeeded. Providers not in
+    # the priority list keep the legacy order (sensenova, openai_compatible,
+    # openrouter) at the end.
+    priority = provider_priority_order()
+    provider_usable = {
+        "sensenova": sensenova_works,
+        "openai-compatible": xcode_works,
+        "openrouter": True,  # only ever used as fallback here
+    }
+    legacy_order = ["sensenova", "openai-compatible", "openrouter"]
+    ranked = priority + [p for p in legacy_order if p not in priority]
+
+    chat_provider = next(
+        (p for p in ranked if provider_usable.get(p)), "sensenova"
+    )
+    preferred_chat_id = chat_model_id if chat_provider == "sensenova" else None
+    if chat_provider == "openai-compatible" and xcode_works:
+        xcode_chat_model = await _ensure_model(
+            name="gpt-5.6-luna",
+            provider="openai_compatible",
+            model_type="language",
+            credential_id="credential:29q5pl2qu3qebyfotwpk",
+        )
+        preferred_chat_id = xcode_chat_model
+
+    if preferred_chat_id or sensenova_works:
+        # Only override defaults when at least one chat provider works.
+        final_chat = preferred_chat_id or chat_model_id
+        defaults.default_chat_model = final_chat
+        defaults.default_tools_model = final_chat
+        defaults.large_context_model = final_chat
         defaults.default_transformation_model = transform_model_id
         defaults.default_embedding_model = sensenova_embedding_id or openrouter_embedding_id
         await defaults.update()
 
     logger.info(
-        "Preferred AI defaults ensured: chat={} transform={} embedding={} fallback_chat={} fallback_embedding={}",
-        chat_model_id,
+        "Preferred AI defaults ensured: chat={} transform={} embedding={} fallback_chat={} fallback_embedding={} (priority={})",
+        defaults.default_chat_model,
         transform_model_id,
         defaults.default_embedding_model,
         openrouter_chat_id,
         openrouter_embedding_id,
+        chat_provider,
     )
     return {
         "chat": chat_model_id,
