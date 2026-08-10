@@ -95,7 +95,21 @@
 
 ---
 
-## 七、遗留/待办
+## 七、运维自动化（第四轮补充）
+
+### 🗓️ 每日自动备份计划任务
+- 创建 Windows 计划任务 `OpenNotebook-AutoBackup`：每天 **03:00** 自动执行 `backup-data.ps1`（SurrealDB + 上传文件 + 脱敏 .env），保留最近 5 份，执行限时 2 小时
+- 已实测触发：`LastResult=0`（成功），生成 `backup_20260810_115826` ✅
+- 查询/管理：
+  ```powershell
+  Get-ScheduledTaskInfo -TaskName "OpenNotebook-AutoBackup"   # 查看上次结果
+  Start-ScheduledTask -TaskName "OpenNotebook-AutoBackup"      # 立即备份
+  Unregister-ScheduledTask -TaskName "OpenNotebook-AutoBackup" # 移除
+  ```
+
+---
+
+## 八、遗留/待办
 
 - [ ] 手机 PWA 安装测试（Android 添加到主屏幕）
 - [ ] 隧道域名临时性（需要固定域名可配 Cloudflare Named Tunnel）
