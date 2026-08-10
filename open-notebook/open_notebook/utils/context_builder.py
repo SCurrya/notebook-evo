@@ -117,7 +117,15 @@ class ContextBuilder:
 
             # Build context based on parameters
             if self.source_id:
-                await self._add_source_context(self.source_id)
+                # 优先用 context_config.sources 里为这个 source 配置的 inclusion_level；
+                # 否则默认 "insights"（向后兼容旧的调用方）
+                inclusion_level = "insights"
+                cfg_sources = self.context_config.sources or {}
+                if self.source_id in cfg_sources:
+                    inclusion_level = cfg_sources[self.source_id]
+                elif f"source:{self.source_id}" in cfg_sources:
+                    inclusion_level = cfg_sources[f"source:{self.source_id}"]
+                await self._add_source_context(self.source_id, inclusion_level)
 
             if self.notebook_id:
                 await self._add_notebook_context(self.notebook_id)

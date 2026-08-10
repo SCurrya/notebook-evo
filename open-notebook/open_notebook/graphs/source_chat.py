@@ -61,13 +61,22 @@ def _call_model_with_source_context_inner(
     # Build source context using ContextBuilder (run async code in new loop)
     def build_context():
         """Build context in a new event loop"""
+        from open_notebook.utils.context_builder import ContextConfig
+
         new_loop = asyncio.new_event_loop()
         try:
             asyncio.set_event_loop(new_loop)
+            # 显式配置为 "full content"：必须传 full_text，否则 LLM 只看到标题
+            # 看不到 source 正文，自然回答 "没有内容"。
+            context_config = ContextConfig(
+                sources={source_id: "full content"},
+                priority_weights={"source": 100, "insight": 75},
+            )
             context_builder = ContextBuilder(
                 source_id=source_id,
                 include_insights=True,
                 include_notes=False,  # Focus on source-specific content
+                context_config=context_config,
                 max_tokens=50000,  # Reasonable limit for source context
             )
             return new_loop.run_until_complete(context_builder.build())
