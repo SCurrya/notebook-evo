@@ -129,6 +129,41 @@
 - demo PDF（公考面试/AI Agent）**已是文字版 PDF**（不是扫描件），PyMuPDF 正常提取中文（22 chunks/source 已是证据）
 - **UmiOCR_Rapid 基于 PaddleOCR**，对**扫描型/图片型 PDF** 的中文识别更好，但**对文字 PDF 无优势**且速度慢
 - **建议**：不换。将来遇到扫描件 PDF 场景再考虑接入 UmiOCR 作为 fallback
+
+---
+
+## 十、SenseNova 接入 + Provider 优先级（最新）
+
+### 🔑 关键修复：SenseNova 端点
+- **问题**：`.env` 里的 `SENSENOVA_BASE_URL=https://api.sensenova.cn/compatible-mode/v2` 所有请求 **403 Forbidden**
+- **真相**：正确端点是 `https://token.sensenova.cn/v1`（搜到官方/社区确认）
+- **修复后实测**：
+  - `sensenova-6.7-flash-lite` ✅（text+image 多模态）
+  - `deepseek-v4-flash` ✅（对话，1M 上下文）
+  - `sensenova-u1-fast` → 404（该模型是 infographics 专用端点，chat 不可用）
+  - embedding → 403（SenseNova 免费额度不含 embedding），**继续用 OpenRouter qwen3**
+
+### ⚙️ 模型分配方案（已实现）
+| 用途 | 首选 | 兜底 |
+|------|------|------|
+| Chat/RAG | SenseNova deepseek-v4-flash（现在） | xcode.best gpt-5.6-luna（503 恢复后自动优先）→ OpenRouter |
+| Transform | SenseNova 6.7-flash-lite | xcode.best |
+| Embedding | OpenRouter qwen3-embedding-4b | — |
+
+### 🎛️ 可调 Provider 优先级（新功能）
+- 新增环境变量 `MODEL_PROVIDER_PRIORITY`（逗号分隔）：
+  ```
+  MODEL_PROVIDER_PRIORITY=sensenova,openai_compatible,openrouter
+  ```
+- 启动时**探测每个 provider**，选最高优先级且可用的作为默认 chat
+- xcode.best 的 key 保留在 `.env`，**503 恢复后自动优先**（无需手动切）
+- 用户改这个变量 + 重启即可调整优先级
+
+### ✅ 验证结果
+- RAG 问答（SenseNova）：200，68s，高质量中文回答含引用 ✅
+- Source Chat（SenseNova + full_text 修复）：**正确读取正文**，3 点总结带引用 ✅
+- 测试：**360/360 passed**
+- 提交 `818beaa` 已推送
 | 每日自动备份 | ✅ 已创建+实测 |
 
 ---
