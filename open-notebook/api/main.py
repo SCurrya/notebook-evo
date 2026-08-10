@@ -10,6 +10,30 @@ import threading
 import time
 from contextlib import asynccontextmanager
 
+# Import command modules so all async commands (embed_note, embed_source,
+# process_source, ...) are registered in the registry of THIS process.
+# With uvicorn reload=True the request-handling subprocess needs its own
+# registry; the worker thread lives in the reloader parent process.
+# Registering here ensures both processes can submit/execute commands.
+try:
+    import commands  # noqa: F401  # triggers commands/__init__.py
+    try:
+        import commands.podcast_commands  # noqa: F401
+    except Exception as _podcast_err:  # pragma: no cover - optional
+        print(f"[main] podcast commands unavailable: {_podcast_err}")
+    try:
+        import commands.source_commands  # noqa: F401
+    except Exception as _src_err:  # pragma: no cover - optional
+        print(f"[main] source commands unavailable: {_src_err}")
+    from surreal_commands.core.registry import registry as _cmd_registry
+    _registered_cmds = _cmd_registry.get_all_commands()
+    print(
+        f"[main] registered {len(_registered_cmds)} commands: "
+        f"{[f'{c.app_id}.{c.name}' for c in _registered_cmds]}"
+    )
+except Exception as _cmd_err:  # pragma: no cover - optional
+    print(f"[main] command registration failed: {_cmd_err}")
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
