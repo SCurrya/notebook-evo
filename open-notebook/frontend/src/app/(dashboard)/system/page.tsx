@@ -125,6 +125,22 @@ export default function SystemPage() {
                     <span className="text-xs text-muted-foreground">SurrealDB 连接</span>
                     <StatusBadge ok={data.db.connected} okLabel="已连接" failLabel="连接失败" />
                   </div>
+                  {data.db_stats && Object.keys(data.db_stats).some((k) => k !== 'error') && (
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      <div className="rounded-md bg-muted/50 px-2 py-1.5 text-center">
+                        <div className="text-sm font-semibold">{data.db_stats.notebook ?? 0}</div>
+                        <div className="text-[10px] text-muted-foreground">笔记本</div>
+                      </div>
+                      <div className="rounded-md bg-muted/50 px-2 py-1.5 text-center">
+                        <div className="text-sm font-semibold">{data.db_stats.source ?? 0}</div>
+                        <div className="text-[10px] text-muted-foreground">来源</div>
+                      </div>
+                      <div className="rounded-md bg-muted/50 px-2 py-1.5 text-center">
+                        <div className="text-sm font-semibold">{data.db_stats.note ?? 0}</div>
+                        <div className="text-[10px] text-muted-foreground">笔记</div>
+                      </div>
+                    </div>
+                  )}
                   {data.db.error && (
                     <p className="mt-2 text-xs text-red-600 dark:text-red-400 break-all">{data.db.error}</p>
                   )}

@@ -56,6 +56,24 @@ async def _model_overview() -> Dict[str, Any]:
     return result
 
 
+async def _db_stats() -> Dict[str, Any]:
+    """Count records in key tables for a quick data-at-a-glance metric."""
+    result: Dict[str, Any] = {}
+    tables = ("notebook", "source", "note", "task", "insight")
+    try:
+        async with db_connection() as connection:
+            for table in tables:
+                rows = await connection.query(
+                    f"SELECT count() AS total FROM {table} GROUP ALL;"
+                )
+                # connection.query returns the list of result rows directly
+                if rows and isinstance(rows[0], dict):
+                    result[table] = rows[0].get("total", 0)
+    except Exception as e:  # pragma: no cover - depends on runtime env
+        result["error"] = str(e)[:200]
+    return result
+
+
 async def _worker_status() -> Dict[str, Any]:
     """Check whether the background command worker loop is running.
 
@@ -87,6 +105,7 @@ async def system_status() -> Dict[str, Any]:
         "python": sys.version.split()[0],
         "platform": platform.platform(),
         "db": await _db_status(),
+        "db_stats": await _db_stats(),
         "models": await _model_overview(),
         "worker": await _worker_status(),
     }
