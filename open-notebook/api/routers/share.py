@@ -39,9 +39,13 @@ def _to_response(link: ShareLink) -> ShareLinkResponse:
     expires_at = link.expires_at
     if isinstance(expires_at, datetime):
         expires_at = expires_at.isoformat()
-    last_accessed = link.last_accessed_at
+    # 兼容旧记录/测试 mock：字段可能缺失
+    access_count = getattr(link, "access_count", 0) or 0
+    last_accessed = getattr(link, "last_accessed_at", None)
     if isinstance(last_accessed, datetime):
         last_accessed = last_accessed.isoformat()
+    elif last_accessed is not None and not isinstance(last_accessed, str):
+        last_accessed = None
     return ShareLinkResponse(
         id=link.id or "",
         notebook_id=link.notebook_id,
@@ -51,7 +55,7 @@ def _to_response(link: ShareLink) -> ShareLinkResponse:
         created_by=link.created_by,
         created=str(link.created) if link.created else "",
         updated=str(link.updated) if link.updated else "",
-        access_count=link.access_count or 0,
+        access_count=access_count,
         last_accessed_at=last_accessed,
     )
 
