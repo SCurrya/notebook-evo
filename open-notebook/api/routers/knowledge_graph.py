@@ -68,39 +68,101 @@ def _parse_llm_json(content: str) -> Dict[str, Any]:
             lines = lines[:-1]
         text = "\n".join(lines)
     text = text.strip()
+
+    # 1) 直接解析
     try:
         return json.loads(text)
-    except json.JSONDecodeError as e:
-        raise InvalidInputError(f"LLM 返回的内容不是有效的 JSON: {e}")
+    except json.JSONDecodeError:
+        pass
+
+    # 2) 提取第一个 { ... } 子串（LLM 可能在 JSON 前后加了说明文字）
+    try:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end > start:
+            candidate = text[start : end + 1]
+            return json.loads(candidate)
+    except json.JSONDecodeError:
+        pass
+
+    # 3) 截断容错：响应超长被截断时，去掉最后一个未闭合的键值对
+    try:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end > start:
+            candidate = text[start : end + 1]
+            # 找最后一个逗号，截断到那里再补 }
+            last_comma = candidate.rfind(",")
+            if last_comma != -1:
+                partial = candidate[:last_comma] + "}"
+                parsed = json.loads(partial)
+                # 只接受包含 entities 的结构
+                if "entities" in parsed:
+                    return parsed
+    except json.JSONDecodeError:
+        pass
+
+    raise InvalidInputError(f"LLM 返回的内容不是有效的 JSON: {text[:200]}")
 
 
 async def _extract_with_llm(content: str) -> Dict[str, Any]:
     """调用 LLM 提取实体和关系。
 
-    使用项目现有的模型管理系统，优先使用默认的 transformation 模型。
+    使用项目现有的模型管理系统，优先使用默认的 transformation 模型，
+    失败时回退到同 provider 的其他可用 chat 模型。
     """
-    from open_notebook.ai.models import DefaultModels, model_manager
+    from open_notebook.ai.models import DefaultModels, Model, model_manager
 
     defaults = await DefaultModels.get_instance()
-    model_id = (
-        defaults.default_transformation_model
-        or defaults.default_chat_model
-    )
-    if not model_id:
+    model_ids: list[str] = []
+    for mid in (
+        getattr(defaults, "default_transformation_model", None),
+        getattr(defaults, "default_chat_model", None),
+        getattr(defaults, "large_context_model", None),
+    ):
+        if mid and mid not in model_ids:
+            model_ids.append(mid)
+
+    # 追加其他可用的 language 模型作为兜底
+    try:
+        all_models = await Model.get_models_by_type("language")
+        if all_models:
+            for extra in all_models:
+                mid = getattr(extra, "id", None)
+                if mid and str(mid) not in model_ids:
+                    model_ids.append(str(mid))
+    except Exception:
+        pass
+
+    if not model_ids:
         raise InvalidInputError(
             "未配置默认的 transformation 或 chat 模型，无法执行知识图谱提取"
         )
-    model = await model_manager.get_model(model_id)
-    if model is None:
-        raise InvalidInputError(f"找不到模型 {model_id}")
 
     messages = [
         {"role": "system", "content": _EXTRACTION_SYSTEM_PROMPT},
         {"role": "user", "content": f"请从以下笔记本内容中提取知识图谱：\n\n{content}"},
     ]
-    response = await model.achat_complete(messages)
-    text = response.choices[0].message.content or ""
-    return _parse_llm_json(text)
+
+    last_error: Exception | None = None
+    for mid in model_ids:
+        try:
+            model = await model_manager.get_model(mid)
+            if model is None:
+                continue
+            response = await model.achat_complete(messages)
+            text = response.choices[0].message.content or ""
+            return _parse_llm_json(text)
+        except Exception as e:  # noqa: BLE001 - try next candidate
+            last_error = e
+            logger.warning(
+                f"[knowledge-graph] model {mid} failed for extraction: {e}"
+            )
+            continue
+
+    raise InvalidInputError(
+        f"所有候选模型提取知识图谱均失败: {last_error}"
+    )
 
 
 @router.post("/ask")

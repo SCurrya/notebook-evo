@@ -7,6 +7,7 @@ import { NotebookHeader } from '@/app/(dashboard)/notebooks/components/NotebookH
 import { SourcesColumn } from '@/app/(dashboard)/notebooks/components/SourcesColumn'
 import { NotesColumn } from '@/app/(dashboard)/notebooks/components/NotesColumn'
 import { ChatColumn } from '@/app/(dashboard)/notebooks/components/ChatColumn'
+import { NotebookGraph } from './components/NotebookGraph'
 import { useNotebook } from '@/lib/hooks/use-notebooks'
 import { useNotebookSources } from '@/lib/hooks/use-sources'
 import { useNotes } from '@/lib/hooks/use-notes'
@@ -16,7 +17,7 @@ import { useIsDesktop } from '@/lib/hooks/use-media-query'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import { cn } from '@/lib/utils'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { FileText, StickyNote, MessageSquare } from 'lucide-react'
+import { FileText, StickyNote, MessageSquare, Network } from 'lucide-react'
 import type { ContextMode, ContextSelections } from '@/lib/types/notebook-context'
 
 interface PageClientProps {
@@ -67,8 +68,8 @@ export default function PageClient({ notebookId: notebookIdProp }: PageClientPro
   // Detect desktop to avoid double-mounting ChatColumn
   const isDesktop = useIsDesktop()
 
-  // Mobile tab state (Sources, Notes, or Chat)
-  const [mobileActiveTab, setMobileActiveTab] = useState<'sources' | 'notes' | 'chat'>('chat')
+  // Mobile tab state (Sources, Notes, Chat, or Graph)
+  const [mobileActiveTab, setMobileActiveTab] = useState<'sources' | 'notes' | 'chat' | 'graph'>('chat')
 
   // Context selection state
   const [contextSelections, setContextSelections] = useState<ContextSelections>({
@@ -156,8 +157,8 @@ export default function PageClient({ notebookId: notebookIdProp }: PageClientPro
           {!isDesktop && (
             <>
               <div className="lg:hidden mb-4">
-                <Tabs value={mobileActiveTab} onValueChange={(value) => setMobileActiveTab(value as 'sources' | 'notes' | 'chat')}>
-                  <TabsList className="grid w-full grid-cols-3">
+                <Tabs value={mobileActiveTab} onValueChange={(value) => setMobileActiveTab(value as 'sources' | 'notes' | 'chat' | 'graph')}>
+                  <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="sources" className="gap-2">
                       <FileText className="h-4 w-4" />
                       {t('navigation.sources')}
@@ -165,6 +166,10 @@ export default function PageClient({ notebookId: notebookIdProp }: PageClientPro
                     <TabsTrigger value="notes" className="gap-2">
                       <StickyNote className="h-4 w-4" />
                       {t('common.notes')}
+                    </TabsTrigger>
+                    <TabsTrigger value="graph" className="gap-2">
+                      <Network className="h-4 w-4" />
+                      {t('navigation.knowledgeGraph') || '图谱'}
                     </TabsTrigger>
                     <TabsTrigger value="chat" className="gap-2">
                       <MessageSquare className="h-4 w-4" />
@@ -198,6 +203,9 @@ export default function PageClient({ notebookId: notebookIdProp }: PageClientPro
                     contextSelections={contextSelections.notes}
                     onContextModeChange={(noteId, mode) => handleContextModeChange(noteId, mode, 'note')}
                   />
+                )}
+                {mobileActiveTab === 'graph' && (
+                  <NotebookGraph notebookId={notebookId} />
                 )}
                 {mobileActiveTab === 'chat' && (
                   <ChatColumn
