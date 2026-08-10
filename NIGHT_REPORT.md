@@ -17,7 +17,7 @@
 
 | 方式 | 地址 | 场景 |
 |------|------|------|
-| 🌐 公网 | `https://cbs-appointment-nathan-commands.trycloudflare.com` | 任何网络，无需安装 |
+| 🌐 公网 | `https://tells-andrea-arg-motion.trycloudflare.com` | 任何网络，无需安装（隧道重启后域名会变，用 `get-tunnel-url.ps1` 查最新） |
 | 📶 局域网 | `http://LAN_IP_PLACEHOLDER:8889` | 手机连同一 WiFi |
 | 🔒 Tailscale | `http://TAILSCALE_IP_PLACEHOLDER:8889` | 手机装 Tailscale，随时随地 |
 | 💻 桌面 | `http://localhost:8889` | 本机 |
@@ -58,9 +58,42 @@
 
 ### 6. 🛠️ 运维脚本（睡醒就能用）
 - `scripts/backup-data.ps1`：一键备份数据库 + 上传文件 + .env（脱敏），保留最近 5 份
-- `scripts/get-tunnel-url.ps1`：一键显示所有访问地址
+- `scripts/get-tunnel-url.ps1`：一键显示所有访问地址（已修复隧道日志路径检测）
 - `scripts/demo-mode.ps1`：一键演示模式（备份 → 重置 → 注入演示数据 → 启动）
-- `E:\notebook\backups\backup_20260808_054643`：第一份备份已生成
+- `E:\notebook\backups\backup_20260808_070944`：最新完整备份
+
+---
+
+## ⭐ 第二轮（8 月 10 日）重大修复与增强
+
+### 🔥 最重要的 Bug 修复：数据关联方向全反了
+- 根因：`Source.add_to_notebook` 创建 `source->reference->notebook` 关系（in=source, out=notebook），但**所有查询**都写反了
+- 后果（修复前）：`source_count` 永远是 0、笔记本里看不到来源、**搜索过滤完全失效**（返回所有笔记本的混合结果）、共享笔记本空白
+- 修复：`notebooks.py`、`sources.py`、`domain/notebook.py` 全部统一方向
+- 实测：source_count=3 ✅、搜索只返回本笔记本内容 ✅、共享返回 3 sources ✅
+
+### 🔥 共享链接全失效 bug
+- 根因：`ShareLink.get_by_token` 用 `token` 作 SurrealDB 参数名，但 `token` 是**保留字**
+- 修复：改名 `$share_token`。实测共享笔记本正常返回内容 ✅
+
+### 🔥 异步命令未注册 bug
+- 根因：`API_RELOAD=true` 时 uvicorn 子进程的命令 registry 为空
+- 修复：`api/main.py` 直接导入 commands 模块 → `registered 10 commands` ✅
+- **效果**：创建笔记/来源时异步嵌入真正生效（验证笔记嵌入成功：`qwen3-embedding-4b` 200）
+
+### 📊 系统健康面板增强
+- `/api/system/status` 新增 `db_stats`：notebook/source/note/task/insight 实时计数
+- `/system` 页面数据库卡片新增数量网格（笔记本/来源/笔记）
+
+### 📱 移动端构建问题解决
+- 根因：CodeBuddy IDE 的 safe-delete shim 注入 `NODE_OPTIONS`，构建清理 `.next` 时超时失败
+- 解决：构建时清空 `NODE_OPTIONS` → `out/` 成功更新
+- 演示笔记本补齐：2 条已嵌入的演示笔记（AI Agent 概念 / 公考面试要点）
+
+### 🚀 全部已验证
+- 笔记本计数正确（source=3, note=2）
+- 混合检索命中笔记内容
+- 系统状态 db_stats 正常（notebook=2, source=3, note=8）
 
 ---
 
