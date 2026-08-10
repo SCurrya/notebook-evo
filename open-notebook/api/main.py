@@ -446,6 +446,7 @@ for _required_mod in [
     "providers",
     "system",
     "studio",
+    "analytics",
 ]:
     _include_router_module(_required_mod, required=True)
 
