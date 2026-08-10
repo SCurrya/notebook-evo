@@ -241,6 +241,8 @@ export const enUS = {
     archived: "Archived",
     archive: "Archive",
     unarchive: "Unarchive",
+    export: "Export Notebook",
+    exportFailed: "Export failed, please retry",
     deleteNotebook: "Delete Notebook",
     deleteNotebookDesc: "Are you sure you want to delete \"{name}\"? This action cannot be undone.",
     deleteNotebookLoading: "Loading deletion preview...",

@@ -51,4 +51,12 @@ export const notebooksApi = {
     const response = await apiClient.delete(`/notebooks/${notebookId}/sources/${sourceId}`)
     return response.data
   },
+
+  /** 导出笔记本内容。format: 'markdown' | 'json' */
+  exportNotebook: async (id: string, format: 'markdown' | 'json' = 'markdown') => {
+    const response = await apiClient.get(`/notebooks/${id}/export${format === 'json' ? '/json' : ''}`, {
+      responseType: 'blob',
+    })
+    return response.data as Blob
+  },
 }

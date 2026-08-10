@@ -4,8 +4,19 @@ import { useState } from 'react'
 import { NotebookResponse } from '@/lib/types/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Archive, ArchiveRestore, Trash2, Share2 } from 'lucide-react'
+import {
+  Archive, ArchiveRestore, Trash2, Share2, Download, FileDown, FileJson,
+} from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 import { useUpdateNotebook } from '@/lib/hooks/use-notebooks'
+import { notebooksApi } from '@/lib/api/notebooks'
 import { NotebookDeleteDialog } from './NotebookDeleteDialog'
 import { ShareDialog } from '@/components/share/ShareDialog'
 import { formatDistanceToNow } from 'date-fns'
@@ -50,6 +61,24 @@ export function NotebookHeader({ notebook }: NotebookHeaderProps) {
     })
   }
 
+  const handleExport = async (format: 'markdown' | 'json') => {
+    try {
+      const blob = await notebooksApi.exportNotebook(notebook.id, format)
+      const ext = format === 'json' ? 'json' : 'md'
+      const safeName = (notebook.name || 'notebook').replace(/[^\w\u4e00-\u9fa5-]+/g, '_')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${safeName}.${ext}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('导出失败:', err)
+    }
+  }
+
   return (
     <>
       <div className="border-b pb-6">
@@ -70,6 +99,26 @@ export function NotebookHeader({ notebook }: NotebookHeaderProps) {
               )}
             </div>
             <div className="flex gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Download className="h-4 w-4 mr-2" />
+                    导出
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>{t('notebooks.export')}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleExport('markdown')}>
+                    <FileDown className="h-4 w-4 mr-2" />
+                    Markdown (.md)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport('json')}>
+                    <FileJson className="h-4 w-4 mr-2" />
+                    JSON（结构化）
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 variant="outline"
                 size="sm"

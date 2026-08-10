@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
 from fastapi.responses import PlainTextResponse
 from loguru import logger
 
@@ -506,4 +507,86 @@ async def export_notebook(notebook_id: str):
         logger.error(f"Error exporting notebook {notebook_id}: {str(e)}")
         raise HTTPException(
             status_code=500, detail=f"Error exporting notebook: {str(e)}"
+        )
+
+
+@router.get("/notebooks/{notebook_id}/export/json")
+async def export_notebook_json(notebook_id: str):
+    """Export a notebook as a structured JSON document.
+
+    Includes notebook metadata, sources (title/content), notes, and insights.
+    Useful for programmatic re-import, archival, or data portability.
+    """
+    import json
+
+    log = get_logger("notebooks_api", Operation.READ, f"notebook_id={notebook_id} export-json")
+    log.debug("-> export_notebook_json()")
+    try:
+        notebook = await Notebook.get(notebook_id)
+        if not notebook:
+            raise HTTPException(status_code=404, detail="Notebook not found")
+
+        sources = await notebook.get_sources(include_full_text=True)
+        notes = await notebook.get_notes(include_content=True)
+
+        source_payload = []
+        for src in sources:
+            source_payload.append(
+                {
+                    "id": str(getattr(src, "id", "")),
+                    "title": getattr(src, "title", ""),
+                    "url": getattr(src, "url", None),
+                    "content": (getattr(src, "full_text", "") or "")[:20000],
+                }
+            )
+
+        note_payload = []
+        for note in notes:
+            note_payload.append(
+                {
+                    "id": str(getattr(note, "id", "")),
+                    "title": getattr(note, "title", ""),
+                    "content": getattr(note, "content", "") or "",
+                    "note_type": getattr(note, "note_type", "human"),
+                }
+            )
+
+        insight_payload = []
+        for src in sources:
+            try:
+                insights = await src.get_insights()
+            except Exception:
+                insights = []
+            for insight in insights:
+                insight_payload.append(
+                    {
+                        "id": str(getattr(insight, "id", "")),
+                        "type": getattr(insight, "insight_type", "Insight"),
+                        "content": getattr(insight, "content", "") or "",
+                    }
+                )
+
+        payload = {
+            "notebook": {
+                "id": notebook_id,
+                "name": getattr(notebook, "name", ""),
+                "description": getattr(notebook, "description", "") or "",
+                "exported_at": __import__("datetime").datetime.now().isoformat(),
+                "export_format": "open-notebook-json-v1",
+            },
+            "sources": source_payload,
+            "notes": note_payload,
+            "insights": insight_payload,
+        }
+
+        log.bind(result=Result.SUCCESS).info(
+            f"<- export_notebook_json() {len(sources)} sources, {len(notes)} notes"
+        )
+        return JSONResponse(content=payload)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error exporting notebook {notebook_id} to JSON: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error exporting notebook to JSON: {str(e)}"
         )

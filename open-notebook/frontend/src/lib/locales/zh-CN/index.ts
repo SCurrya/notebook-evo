@@ -241,6 +241,8 @@ export const zhCN = {
     searchPlaceholder: "搜索笔记本...",
     archived: "已归档",
     archive: "归档",
+    export: "导出笔记本",
+    exportFailed: "导出失败，请重试",
     unarchive: "取消归档",
     deleteNotebook: "删除笔记本",
     deleteNotebookDesc: "您确定要删除 \"{name}\" 吗？此操作无法撤销。",
