@@ -106,6 +106,29 @@
 | 混合检索 | ✅ 3/3 命中 |
 | 后端测试 | ✅ 360 passed |
 | 前端构建 | ✅ 17.9s 成功 |
+
+---
+
+## 九、Source Chat 关键修复（最新 hotfix）
+
+### 🐛 Bug：Source Chat 看不到正文
+- **症状**：source 详情页明明有完整正文，但 RAG Chat 回答"仅包含标题、没有具体正文内容"（截图见对话历史）
+- **根因**：`ContextBuilder.build()` 忽略了 `ContextConfig.sources` 配置，永远用默认 `inclusion_level="insights"`，导致 `Source.get_context("short")` 返回的 dict 不含 `full_text`
+- **修复**：
+  - `utils/context_builder.py` 的 `build()`：读取 `context_config.sources` 决定 inclusion_level（兼容带/不带 `source:` 前缀的 key）
+  - `graphs/source_chat.py`：显式传 `ContextConfig(sources={source_id: "full content"})`
+- **验证**：上下文从 **43 tokens → 2305 tokens**（包含完整正文）
+
+### ⚠️ 部署注意：端口 5055 被僵尸 socket 占用
+- 当前 4 个 Python 进程占着 5055（PID 10136/18368/20600/23028），Stop-Process/taskkill 都杀不死（`taskkill /T` 未授权）
+- **解决**：重启电脑后用 `E:\notebook\start-all.bat` 启动
+- 临时方案：API 已用 5056 端口启动验证修复（`E:\notebook\open-notebook\api-5056.log`）
+
+### 📝 关于 UmiOCR 的调研结论
+- **当前用 PyMuPDF（fitz）+ 内置 Tesseract OCR**（`content_core` 库）处理 PDF
+- demo PDF（公考面试/AI Agent）**已是文字版 PDF**（不是扫描件），PyMuPDF 正常提取中文（22 chunks/source 已是证据）
+- **UmiOCR_Rapid 基于 PaddleOCR**，对**扫描型/图片型 PDF** 的中文识别更好，但**对文字 PDF 无优势**且速度慢
+- **建议**：不换。将来遇到扫描件 PDF 场景再考虑接入 UmiOCR 作为 fallback
 | 每日自动备份 | ✅ 已创建+实测 |
 
 ---
