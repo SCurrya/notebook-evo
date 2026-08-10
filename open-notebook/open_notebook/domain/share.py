@@ -35,7 +35,12 @@ class ShareLink(ObjectModel):
     """笔记本共享链接。"""
 
     table_name: ClassVar[str] = "share_link"
-    nullable_fields: ClassVar[set[str]] = {"expires_at", "created_by", "notebook_id"}
+    nullable_fields: ClassVar[set[str]] = {
+        "expires_at",
+        "created_by",
+        "notebook_id",
+        "last_accessed_at",
+    }
 
     notebook_id: str = Field(..., description="被共享的笔记本 ID")
     token: str = Field(..., description="访问 token")
@@ -48,6 +53,18 @@ class ShareLink(ObjectModel):
     created_by: Optional[str] = Field(
         None, description="创建者标识"
     )
+    access_count: int = Field(
+        0, description="访问次数统计"
+    )
+    last_accessed_at: Optional[datetime] = Field(
+        None, description="最近访问时间"
+    )
+
+    async def record_access(self) -> None:
+        """记录一次访问：增加计数并更新最近访问时间。"""
+        self.access_count = (self.access_count or 0) + 1
+        self.last_accessed_at = datetime.now(timezone.utc)
+        await self.save()
 
     @field_validator("permissions")
     @classmethod

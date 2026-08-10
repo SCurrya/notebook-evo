@@ -39,6 +39,9 @@ def _to_response(link: ShareLink) -> ShareLinkResponse:
     expires_at = link.expires_at
     if isinstance(expires_at, datetime):
         expires_at = expires_at.isoformat()
+    last_accessed = link.last_accessed_at
+    if isinstance(last_accessed, datetime):
+        last_accessed = last_accessed.isoformat()
     return ShareLinkResponse(
         id=link.id or "",
         notebook_id=link.notebook_id,
@@ -48,6 +51,8 @@ def _to_response(link: ShareLink) -> ShareLinkResponse:
         created_by=link.created_by,
         created=str(link.created) if link.created else "",
         updated=str(link.updated) if link.updated else "",
+        access_count=link.access_count or 0,
+        last_accessed_at=last_accessed,
     )
 
 
@@ -124,6 +129,13 @@ async def get_shared_notebook(token: str):
             raise HTTPException(status_code=404, detail="共享链接不存在")
         if link.is_expired():
             raise HTTPException(status_code=410, detail="共享链接已过期")
+
+        # 记录访问统计
+        try:
+            await link.record_access()
+        except Exception:
+            # 统计失败不应阻断共享访问
+            pass
 
         notebook = await Notebook.get(link.notebook_id)
         if not notebook:

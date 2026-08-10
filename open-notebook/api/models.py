@@ -971,6 +971,8 @@ class ShareLinkResponse(BaseModel):
     created_by: Optional[str] = None
     created: str = ""
     updated: str = ""
+    access_count: int = 0
+    last_accessed_at: Optional[str] = None
 
 
 class SharedNotebookResponse(BaseModel):
