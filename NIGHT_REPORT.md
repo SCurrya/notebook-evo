@@ -84,7 +84,18 @@
 
 ---
 
-## 六、遗留/待办
+## 六、第四轮补充（共享访问统计）
+
+### 📈 共享链接访问统计
+- `ShareLink` 新增 `access_count`（默认 0）和 `last_accessed_at`
+- `GET /api/share/{token}` 每次访问自动记录（统计失败不阻断共享视图）
+- `ShareLinkResponse` 暴露统计字段（前端可展示）
+- 实测：新链接访问 3 次 → `access_count=3`、`last_accessed_at` 更新 ✅
+- 修复：`_to_response` 对缺失字段容错（兼容测试 mock / 旧记录），**360/360 测试通过**
+
+---
+
+## 七、遗留/待办
 
 - [ ] 手机 PWA 安装测试（Android 添加到主屏幕）
 - [ ] 隧道域名临时性（需要固定域名可配 Cloudflare Named Tunnel）
