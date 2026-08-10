@@ -17,6 +17,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Search, ChevronDown, AlertCircle, Settings, Save, MessageCircleQuestion, Sparkles } from 'lucide-react'
 import { useSearch, useSemanticSearch } from '@/lib/hooks/use-search'
 import { useAsk } from '@/lib/hooks/use-ask'
+import { useSearchHistory } from '@/lib/hooks/use-search-history'
 import { useModelDefaults, useModels } from '@/lib/hooks/use-models'
 import { useModalManager } from '@/lib/hooks/use-modal-manager'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
@@ -65,6 +66,7 @@ export default function SearchPage() {
   const searchMutation = useSearch()
   const semanticSearchMutation = useSemanticSearch()
   const ask = useAsk()
+  const { history: searchHistory, addHistory, clearHistory } = useSearchHistory()
   const { data: modelDefaults, isLoading: modelsLoading } = useModelDefaults()
   const { data: availableModels } = useModels()
   const { openModal } = useModalManager()
@@ -90,6 +92,8 @@ export default function SearchPage() {
   const handleSearch = useCallback(() => {
     if (!searchQuery.trim()) return
 
+    addHistory(searchQuery, 'search')
+
     // 根据搜索模式调用不同的搜索接口
     if (searchMode === 'semantic') {
       semanticSearchMutation.mutate({
@@ -107,7 +111,7 @@ export default function SearchPage() {
         minimum_score: 0.2
       })
     }
-  }, [searchQuery, searchType, searchSources, searchNotes, searchMutation, searchMode, semanticSearchMutation])
+  }, [searchQuery, searchType, searchSources, searchNotes, searchMutation, searchMode, semanticSearchMutation, addHistory])
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -118,6 +122,8 @@ export default function SearchPage() {
   const handleAsk = useCallback(() => {
     if (!askQuestion.trim() || !modelDefaults?.default_chat_model) return
 
+    addHistory(askQuestion, 'ask')
+
     const models = customModels || {
       strategy: modelDefaults.default_chat_model,
       answer: modelDefaults.default_chat_model,
@@ -125,7 +131,7 @@ export default function SearchPage() {
     }
 
     ask.sendAsk(askQuestion, models)
-  }, [askQuestion, modelDefaults, customModels, ask])
+  }, [askQuestion, modelDefaults, customModels, ask, addHistory])
 
   // Auto-trigger search/ask when arriving with URL params
   useEffect(() => {
@@ -194,6 +200,52 @@ export default function SearchPage() {
               </TabsTrigger>
             </TabsList>
           </div>
+
+          {/* 搜索历史 */}
+          {searchHistory.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">最近:</span>
+              {searchHistory.map((entry) => (
+                <button
+                  key={`${entry.ts}-${entry.query}`}
+                  type="button"
+                  onClick={() => {
+                    if (entry.mode === 'ask') {
+                      setAskQuestion(entry.query)
+                      setActiveTab('ask')
+                      hasAutoTriggeredRef.current = false
+                    } else {
+                      setSearchQuery(entry.query)
+                      setActiveTab('search')
+                      hasAutoTriggeredRef.current = false
+                      requestAnimationFrame(() => {
+                        // 复用 handleSearch，但不重新记录历史（去重由 addHistory 处理）
+                        searchMutation.mutate({
+                          query: entry.query,
+                          type: searchType,
+                          limit: 100,
+                          search_sources: searchSources,
+                          search_notes: searchNotes,
+                          minimum_score: 0.2,
+                        })
+                      })
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full border bg-card px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+                >
+                  {entry.mode === 'ask' ? <MessageCircleQuestion className="h-3 w-3" /> : <Search className="h-3 w-3" />}
+                  {entry.query.length > 18 ? `${entry.query.slice(0, 18)}…` : entry.query}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={clearHistory}
+                className="text-xs text-muted-foreground/60 underline-offset-2 hover:underline"
+              >
+                清除
+              </button>
+            </div>
+          )}
 
           <TabsContent value="ask" className="mt-6">
             <Card>
