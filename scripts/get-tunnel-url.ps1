@@ -61,7 +61,7 @@ if ($wifi) {
 Write-Host "  [本机]   桌面: http://localhost:8889 或 http://127.0.0.1:8502" -ForegroundColor Gray
 
 Write-Host ""
-Write-Host "  统一访问密码: REPLACED_SEE_LOCAL_CREDENTIALS (见 E:\notebook\CREDENTIALS.md)" -ForegroundColor Magenta
+Write-Host "  统一访问密码: 见 E:\notebook\CREDENTIALS.md (本地凭据文件)" -ForegroundColor Magenta
 Write-Host ""
 Write-Host "  手机打开任意地址后，输入上面的密码即可登录使用。" -ForegroundColor Cyan
 Write-Host "=================================================" -ForegroundColor Cyan

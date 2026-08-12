@@ -76,19 +76,11 @@ notebook-evo/
 
 ## 📱 在线体验
 
-公开演示通过 Cloudflare 隧道提供（密码保护）：
+公开演示通过 Cloudflare 隧道提供，**密码保护**（仅演示期内有效）。
 
-| 渠道 | 地址 |
-|------|------|
-| 🌐 公网 | `https://barriers-geometry-operate-station.trycloudflare.com` |
-| 📶 局域网 | `http://LAN_IP_PLACEHOLDER:8889` |
-| 🔒 Tailscale | `http://TAILSCALE_IP_PLACEHOLDER:8889` |
-
-**手机扫码**：[![](open-notebook/docs/demo-qr.png)](https://barriers-geometry-operate-station.trycloudflare.com)
-
-> 访问密码：`REPLACED_SEE_LOCAL_CREDENTIALS`（在 `E:\notebook\open-notebook\.env` 中修改）
-
-> ⚠️ 隧道域名重启后会变：运行 `powershell -File E:\notebook\scripts\get-tunnel-url.ps1` 查询最新地址
+> 🔐 需要体验在线演示的，请通过**私密渠道**（邮件 / 即时通讯）联系仓库作者获取：演示地址 + 访问密码。
+>
+> 演示地址由 Cloudflare 临时隧道提供，每次重启都会变更，不会长期公开在此 README 中。
 
 ### 截图（待替换）
 

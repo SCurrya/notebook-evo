@@ -66,6 +66,10 @@ installer_output/
 *.exe
 *.zip
 
+# Credentials (never commit)
+scripts/CREDENTIALS.md
+CREDENTIALS.md
+
 # Browser/edge profiles (debug only)
 .edge-profile-shot/
 .edge-test/

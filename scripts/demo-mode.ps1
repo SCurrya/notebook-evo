@@ -36,7 +36,10 @@ if (-not $SkipReset) {
 if (-not $SkipReset) {
     Write-Log "重置数据库（清空笔记本和来源）..."
     try {
-        $h = @{ Authorization = 'Bearer REPLACED_SEE_LOCAL_CREDENTIALS' }
+        # 从 .env 读取密码（不硬编码到脚本里）
+        $envPass = (Select-String -Path 'E:\notebook\open-notebook\.env' -Pattern '^OPEN_NOTEBOOK_PASSWORD=' | Select-Object -First 1).Line -replace '^OPEN_NOTEBOOK_PASSWORD=', ''
+        if (-not $envPass) { throw 'OPEN_NOTEBOOK_PASSWORD 未在 .env 中配置' }
+        $h = @{ Authorization = "Bearer $($envPass.Trim())" }
         # 删除所有笔记本（级联删除来源/笔记）
         $nbs = (Invoke-RestMethod -Uri 'http://127.0.0.1:5055/api/notebooks' -Headers $h -TimeoutSec 10)
         foreach ($nb in $nbs) {
