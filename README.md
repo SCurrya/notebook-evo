@@ -14,6 +14,10 @@
 ![SurrealDB](https://img.shields.io/badge/SurrealDB-FF5E00?style=for-the-badge&logo=databricks&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-3A3A3A?style=for-the-badge&logo=chainlink&logoColor=white)
 
+📥 **下载项目简历 PDF**：[project-showcase.pdf](open-notebook/docs/project-showcase.pdf)
+
+📱 **在线体验**：见 [部署说明](#-在线体验) | 二维码：[docs/demo-qr.png](open-notebook/docs/demo-qr.png)
+
 </div>
 
 ---
@@ -32,6 +36,12 @@ notebook-evo/
 ├── scripts/                # 运维脚本（备份 / 一键演示 / 健康检查）
 └── mobile-app/             # 移动端打包（Capacitor）
 ```
+
+## 🏗️ 系统架构
+
+![Architecture](open-notebook/docs/architecture-diagram.svg)
+
+> 完整架构图：[open-notebook/docs/architecture-diagram.svg](open-notebook/docs/architecture-diagram.svg)
 
 ## ✨ 技术亮点
 
@@ -63,6 +73,33 @@ notebook-evo/
 - **Docker 一键部署**、Windows 一键演示脚本
 - 每日自动备份计划任务、健康检查自动重启
 - **双端同步**：Tailscale 内网穿透，手机电脑访问同一知识库
+
+## 📱 在线体验
+
+公开演示通过 Cloudflare 隧道提供（密码保护）：
+
+| 渠道 | 地址 |
+|------|------|
+| 🌐 公网 | `https://barriers-geometry-operate-station.trycloudflare.com` |
+| 📶 局域网 | `http://LAN_IP_PLACEHOLDER:8889` |
+| 🔒 Tailscale | `http://TAILSCALE_IP_PLACEHOLDER:8889` |
+
+**手机扫码**：[![](open-notebook/docs/demo-qr.png)](https://barriers-geometry-operate-station.trycloudflare.com)
+
+> 访问密码：`REPLACED_SEE_LOCAL_CREDENTIALS`（在 `E:\notebook\open-notebook\.env` 中修改）
+
+> ⚠️ 隧道域名重启后会变：运行 `powershell -File E:\notebook\scripts\get-tunnel-url.ps1` 查询最新地址
+
+### 截图（待替换）
+
+> 启动 `E:\notebook\open-notebook\frontend && npm run dev` → 浏览器登录后用截图工具（F12 → Capture screenshot）替换以下占位图：
+
+| 截图位置 | 占位图 |
+|----------|--------|
+| 笔记本列表 | ![notebooks](https://via.placeholder.com/1200x700/1e293b/94a3b8?text=Notebooks+Page) |
+| 系统健康 | ![system](https://via.placeholder.com/1200x700/1e293b/94a3b8?text=System+Health) |
+| RAG 问答 | ![ask](https://via.placeholder.com/1200x700/1e293b/94a3b8?text=RAG+Ask) |
+| 知识图谱 | ![graph](https://via.placeholder.com/1200x700/1e293b/94a3b8?text=Knowledge+Graph) |
 
 ## 🚀 快速开始
 

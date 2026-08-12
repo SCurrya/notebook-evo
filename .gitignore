@@ -65,6 +65,11 @@ surreal.exe
 installer_output/
 *.exe
 *.zip
+
+# Browser/edge profiles (debug only)
+.edge-profile-shot/
+.edge-test/
+test.png
 *.mp4
 *.mp3
 
