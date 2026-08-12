@@ -70,6 +70,11 @@ installer_output/
 scripts/CREDENTIALS.md
 CREDENTIALS.md
 
+# Personal resume / showcase (never public)
+*.pdf
+resume-project-summary.md
+project-showcase.pdf
+
 # Browser/edge profiles (debug only)
 .edge-profile-shot/
 .edge-test/

@@ -14,8 +14,6 @@
 ![SurrealDB](https://img.shields.io/badge/SurrealDB-FF5E00?style=for-the-badge&logo=databricks&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-3A3A3A?style=for-the-badge&logo=chainlink&logoColor=white)
 
-📥 **下载项目简历 PDF**：[project-showcase.pdf](open-notebook/docs/project-showcase.pdf)
-
 📱 **在线体验**：见 [在线体验](#-在线体验)（演示地址通过私密渠道提供）
 
 </div>
