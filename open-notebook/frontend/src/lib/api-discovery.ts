@@ -14,20 +14,10 @@ function getCandidateUrls(): string[] {
   candidates.push('http://10.0.2.2:5055')
   candidates.push('http://localhost:5055')
 
-  // 2. Hardcoded stable IPs (LAN + Tailscale) - always try these
-  // LAN direct API (same WiFi, fastest)
-  candidates.push('http://LAN_IP_PLACEHOLDER:5055')
-  // LAN via Caddy (Caddy adds CORS headers + serves /health)
-  candidates.push('http://LAN_IP_PLACEHOLDER:8889')
-  // Ethernet fallback (PC wired to router, slower to timeout)
-  candidates.push('http://ETH_IP_PLACEHOLDER:5055')
-  candidates.push('http://ETH_IP_PLACEHOLDER:8889')
-  // Tailscale direct API (works anywhere with Tailscale VPN)
-  candidates.push('http://TAILSCALE_IP_PLACEHOLDER:5055')
-  // Tailscale via Caddy
-  candidates.push('http://TAILSCALE_IP_PLACEHOLDER:8889')
-
-  // 3. Tailscale domain (set via env at build time or localStorage)
+  // 2. Tailscale domain (set via env at build time or localStorage)
+  // NOTE: no machine-specific LAN/Tailscale IPs are hard-coded here; set
+  // NEXT_PUBLIC_TAILSCALE_DOMAIN at build time or 'tailscale-domain' in
+  // localStorage to point at your own Tailscale node.
   const tailscaleDomain = process.env.NEXT_PUBLIC_TAILSCALE_DOMAIN
   if (tailscaleDomain) {
     candidates.push(`http://${tailscaleDomain}:5055`)

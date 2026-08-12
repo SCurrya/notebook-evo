@@ -16,7 +16,7 @@
 
 📥 **下载项目简历 PDF**：[project-showcase.pdf](open-notebook/docs/project-showcase.pdf)
 
-📱 **在线体验**：见 [部署说明](#-在线体验) | 二维码：[docs/demo-qr.png](open-notebook/docs/demo-qr.png)
+📱 **在线体验**：见 [在线体验](#-在线体验)（演示地址通过私密渠道提供）
 
 </div>
 

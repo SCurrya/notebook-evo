@@ -73,7 +73,7 @@
 | API（单进程，含 worker） | 5055 | ✅ 10 命令注册 |
 | Caddy API 网关 | 8888 | ✅ |
 | Caddy Web | 8889 | ✅ |
-| 公网隧道 | — | ✅ `tells-andrea-arg-motion` |
+| 公网隧道 | — | ✅ 运行中（地址见 `get-tunnel-url.ps1` 输出） |
 
 ---
 
@@ -81,9 +81,9 @@
 
 | 方式 | 地址 |
 |------|------|
-| 🌐 公网 | `https://tells-andrea-arg-motion.trycloudflare.com` |
-| 📶 局域网 | `http://LAN_IP_PLACEHOLDER:8889` |
-| 🔒 Tailscale | `http://TAILSCALE_IP_PLACEHOLDER:8889` |
+| 🌐 公网 | （见 `get-tunnel-url.ps1` 输出） |
+| 📶 局域网 | （本机动态 IP，见 `get-tunnel-url.ps1` 输出） |
+| 🔒 Tailscale | （本机动态 IP，见 `get-tunnel-url.ps1` 输出） |
 
 > 隧道重启后域名会变：`powershell -File E:\notebook\scripts\get-tunnel-url.ps1`
 
