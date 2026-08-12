@@ -16,6 +16,8 @@
 
 📱 **在线体验**：见 [在线体验](#-在线体验)（演示地址通过私密渠道提供）
 
+🌐 **GitHub Pages 演示页**：[scurrya.github.io/notebook-evo](https://scurrya.github.io/notebook-evo/)
+
 </div>
 
 ---
@@ -80,16 +82,15 @@ notebook-evo/
 >
 > 演示地址由 Cloudflare 临时隧道提供，每次重启都会变更，不会长期公开在此 README 中。
 
-### 截图（待替换）
+### 界面截图
 
-> 启动 `E:\notebook\open-notebook\frontend && npm run dev` → 浏览器登录后用截图工具（F12 → Capture screenshot）替换以下占位图：
+> 由 Playwright + Chromium 自动截图（`scripts/screenshot_pages.py`）。
 
-| 截图位置 | 占位图 |
-|----------|--------|
-| 笔记本列表 | ![notebooks](https://via.placeholder.com/1200x700/1e293b/94a3b8?text=Notebooks+Page) |
-| 系统健康 | ![system](https://via.placeholder.com/1200x700/1e293b/94a3b8?text=System+Health) |
-| RAG 问答 | ![ask](https://via.placeholder.com/1200x700/1e293b/94a3b8?text=RAG+Ask) |
-| 知识图谱 | ![graph](https://via.placeholder.com/1200x700/1e293b/94a3b8?text=Knowledge+Graph) |
+| 截图 | 截图 |
+|------|------|
+| ![notebooks](open-notebook/docs/screenshots/notebooks.png) | ![system](open-notebook/docs/screenshots/system.png) |
+| ![ask](open-notebook/docs/screenshots/ask.png) | ![graph](open-notebook/docs/screenshots/graph.png) |
+| ![notebook-detail](open-notebook/docs/screenshots/notebook-detail.png) | |
 
 ## 🚀 快速开始
 
@@ -129,6 +130,8 @@ cd frontend && npm test && npm run lint
 | 文档 | 说明 |
 |------|------|
 | [架构文档](open-notebook/docs/architecture.md) | 系统架构、数据流、技术决策 |
+| [技术决策说明](open-notebook/docs/TECH_DECISIONS.md) | 关键架构选择的"为什么"（面试参考） |
+| [演示视频讲解稿](open-notebook/docs/DEMO_VIDEO_SCRIPT.md) | 3 分钟演示视频脚本 |
 | [MCP 接入指南](open-notebook/docs/mcp-server.md) | 接入 Claude / Cursor |
 | [双端同步](open-notebook/docs/mobile-sync.md) | Tailscale 手机电脑访问 |
 | [测试与验收](open-notebook/docs/qa.md) | 三层测试体系 |

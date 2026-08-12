@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Notebook-Evo · AI 知识工作台</title>
+<meta name="description" content="隐私优先 · 多模型 · 可自托管的 AI 知识工作台。基于 Open Notebook 深度增强。" />
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --fg:#e2e8f0; --muted:#94a3b8; --accent:#6366f1; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,Segoe UI,sans-serif; background:var(--bg); color:var(--fg); line-height:1.6; }
+  .wrap { max-width:960px; margin:0 auto; padding:48px 24px; }
+  h1 { font-size:36px; margin:0 0 8px; color:#c7d2fe; }
+  .sub { color:var(--muted); margin:0 0 32px; }
+  .badge { display:inline-block; padding:4px 10px; margin:0 4px 4px 0; border-radius:6px; background:var(--card); color:var(--muted); font-size:13px; }
+  h2 { margin-top:48px; padding-top:24px; border-top:1px solid #334155; font-size:24px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:16px; margin-top:16px; }
+  .grid img { width:100%; border-radius:8px; border:1px solid #334155; background:var(--card); }
+  a { color:#a5b4fc; text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  ul { padding-left:20px; }
+  li { margin-bottom:6px; color:var(--fg); }
+  code { background:#334155; padding:1px 6px; border-radius:3px; font-size:13px; }
+  .cta { display:inline-block; margin:6px 8px 6px 0; padding:10px 16px; background:var(--accent); color:white; border-radius:6px; font-weight:600; }
+  .cta:hover { background:#4f46e5; text-decoration:none; }
+  .dim { color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Notebook-Evo</h1>
+<p class="sub">隐私优先 · 多模型 · 可自托管的 AI 知识工作台</p>
+
+<p>
+  <span class="badge">Python 3.12</span>
+  <span class="badge">FastAPI</span>
+  <span class="badge">Next.js 16</span>
+  <span class="badge">SurrealDB</span>
+  <span class="badge">LangGraph</span>
+  <span class="badge">360+ Tests</span>
+</p>
+
+<p>基于 <a href="https://github.com/lfnovo/open-notebook">Open Notebook</a> (MIT) 深度增强。混合检索、知识图谱、GraphRAG、RAG 评估、多智能体、MCP — 自托管、数据本地、支持手机电脑同步。</p>
+
+<a class="cta" href="https://github.com/SCurrya/notebook-evo">在 GitHub 查看</a>
+
+<h2>界面截图</h2>
+
+<div class="grid">
+  <img src="https://raw.githubusercontent.com/SCurrya/notebook-evo/master/docs/screenshots/notebooks.png" alt="Notebooks Page" />
+  <img src="https://raw.githubusercontent.com/SCurrya/notebook-evo/master/docs/screenshots/system.png" alt="System Health" />
+  <img src="https://raw.githubusercontent.com/SCurrya/notebook-evo/master/docs/screenshots/notebook-detail.png" alt="Notebook Detail" />
+  <img src="https://raw.githubusercontent.com/SCurrya/notebook-evo/master/docs/screenshots/ask.png" alt="RAG Ask" />
+  <img src="https://raw.githubusercontent.com/SCurrya/notebook-evo/master/docs/screenshots/graph.png" alt="Knowledge Graph" />
+</div>
+
+<h2>核心能力</h2>
+
+<ul>
+  <li><b>混合检索</b>：BM25 (jieba 中文) + 向量召回 + RRF 融合 + Rerank</li>
+  <li><b>知识图谱 + GraphRAG</b>：实体关系提取 + 图谱可视化 + 图增强问答</li>
+  <li><b>RAG 评估</b>：RAGAS 四维指标自动评估</li>
+  <li><b>多智能体</b>：LangGraph 状态机跨重启持久化 + MCP Server</li>
+  <li><b>跨 Provider 模型降级</b>：xcode.best → SenseNova → OpenRouter，优先级可配置</li>
+  <li><b>手机电脑同步</b>：Tailscale 内网穿透 + PWA + 14 种语言 i18n</li>
+  <li><b>安全工程</b>：SSRF 防护、SurrealQL 注入修复、Jinja2 模板注入修复、密码恒时认证</li>
+  <li><b>运维自动化</b>：每日自动备份、健康检查、Docker 一键部署</li>
+</ul>
+
+<h2>技术栈</h2>
+
+<ul>
+  <li>后端: <code>Python 3.12</code> · <code>FastAPI</code> · <code>LangGraph</code> · <code>SurrealDB</code> · <code>Esperanto</code></li>
+  <li>前端: <code>Next.js 16</code> · <code>React 19</code> · <code>Tailwind</code> · <code>shadcn/ui</code></li>
+  <li>检索: <code>BM25</code> · <code>向量召回</code> · <code>RRF</code> · <code>Rerank</code> · <code>HyDE</code></li>
+  <li>测试: <code>pytest 360+</code> · <code>CI lint+test</code></li>
+</ul>
+
+<p class="dim" style="margin-top:48px;font-size:13px">© 2026 · MIT License · 由 Open Notebook 深度增强</p>
+
+</div>
+</body>
+</html>
